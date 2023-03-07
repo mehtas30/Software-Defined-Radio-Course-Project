@@ -8,7 +8,7 @@ Ontario, Canada
 */
 
 #include "dy4.h"
-#include "filter.h"
+#include "../include/filter.h"
 #include "fourier.h"
 #include "genfunc.h"
 #include "iofunc.h"
@@ -22,57 +22,96 @@ int main(int argc, char* argv[])
 	std::vector<float> bin_data;
 	readBinData(in_fname, bin_data);
 
-	// generate an index vector to be used by logVector on the X axis
-	std::vector<float> vector_index;
-	genIndexVector(vector_index, bin_data.size());
-	// log time data in the "../data/" subfolder in a file with the following name
-	// note: .dat suffix will be added to the log file in the logVector function
-	logVector("demod_time", vector_index, bin_data);
+	int mode = 0;
 
-	// take a slice of data with a limited number of samples for the Fourier transform
-	// note: NFFT constant is actually just the number of points for the
-	// Fourier transform - there is no FFT implementation ... yet
-	// unless you wish to wait for a very long time, keep NFFT at 1024 or below
-	std::vector<float> slice_data = \
-		std::vector<float>(bin_data.begin(), bin_data.begin() + NFFT);
-	// note: make sure that binary data vector is big enough to take the slice
+	if (argc < 2){
+		std::cerr << "Operating in default mode 0" << std::endl;
+	}
+	else if (argc == 2){
+		mode = atoi(argv[1]);
+		if (mode > 3){
+			std::cerr << "Wrong mode " << mode << std::endl;
+			exit(1);
+		}
+	}
+	else{
+		std::cerr << "Usage: " << argv[0] << std::endl;
+		std::cerr << "or " << std::endl;
+		std::cerr << "Usage " << argv[0] << " <mode>" << std::endl;
+		std::cerr << "\t\t <mode> is a value from 0 to 3" << std::endl;
+		exit(1);
+	}
 
-	// declare a vector of complex values for DFT
-	std::vector<std::complex<float>> Xf;
-	// ... in-lab ...
-	// compute the Fourier transform
-	// the function is already provided in fourier.cpp
+	std::cerr << "Operating in mode " << mode << std::endl;
 
-	// compute the magnitude of each frequency bin
-	// note: we are concerned only with the magnitude of the frequency bin
-	// (there is NO logging of the phase response)
-	std::vector<float> Xmag;
-	// ... in-lab ...
-	// compute the magnitude of each frequency bin
-	// the function is already provided in fourier.cpp
+	int rf_fs;
+	int rf_fc = 100000;
+	int rf_taps = 151;
+	int rf_decim = 10;
 
-	// log the frequency magnitude vector
-	vector_index.clear();
-	genIndexVector(vector_index, Xmag.size());
-	logVector("demod_freq", vector_index, Xmag); // log only positive freq
+	int audio_fs;
+	int audio_decim = 5;
+	int audio_taps = 101;
+	int audio_fc = 16000;
 
-	// for your take-home exercise - repeat the above after implementing
-	// your OWN function for PSD based on the Python code that has been provided
-	// note the estimate PSD function should use the entire block of "bin_data"
-	//
-	// ... complete as part of the take-home ...
-	//
+	if (mode == 0){
+		rf_fs = 2400000;
+		audio_fs = 48000;
+		
+		// read from .raw
 
-	// if you wish to write some binary files, see below example
-	//
-	// const std::string out_fname = "../data/outdata.bin";
-	// writeBinData(out_fname, bin_data);
-	//
-	// output files can be imported, for example, in Python
-	// for additional analysis or alternative forms of visualization
+		std::vector<float> rf_coeff;
+		impulseResponseLPF(rf_fs, rf_fc, rf_taps, rf_coeff);
 
-	// naturally, you can comment the line below once you are comfortable to run GNU plot
-	std::cout << "Run: gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png\n";
+		int block_size = 1024 * rf_decim * audio_decim * 2;
+		int block_count = 0;
+
+		std::vector<float> state_i_lpf_100k(rf_taps-1, 0.0);
+		std::vector<float> state_q_lpf_100k(rf_taps-1, 0.0);
+		std::vector<float> i_filt, q_filt;
+
+		float prevI = 0;
+		float prevQ = 0;
+		std::vector<float> audio_data;
+		std::vector<float> i_data_slice, q_data_slice;
+
+		for (;; block_count++){
+			std::vector<float> iq_block(block_size);
+			readStdinBlockData(block_size, block_count, iq_block);
+			if((std::cin.rdstate()) != 0){
+				std::cerr << "End of input stream reached!" << std::endl;
+				exit(1);
+			}
+			std::cerr << "Read block " << block_count << std::endl;
+
+			auto start = iq_block.begin() + (block_count*block_size);
+			auto end = iq_block.begin() + ((block_count+1)*block_size);
+			copy(start, end, i_data_slice.begin());
+			
+			convolveFIR(i_filt, i_data_slice, state_i_lpf_100k);
+			convolveFIR(q_filt, q_data_slice, state_q_lpf_100k);
+
+			// decim
+
+			demodFM(i_ds, q_ds, fm_demod, prevI, prevQ);
+
+		}
+	}
+	else if (mode == 1){
+		rf_fs = 1152000;
+		audio_fs = 48000;
+
+	}
+	else if (mode == 2){
+		rf_fs = 2400000;
+		audio_fs = 44100;
+
+	}
+	else if (mode == 3){
+		rf_fs = 2304000;
+		audio_fs = 44100;
+		
+	}
 
 	return 0;
 }
