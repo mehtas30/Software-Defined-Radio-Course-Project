@@ -218,9 +218,9 @@ if __name__ == "__main__":
 	print('Finished processing all the blocks from the recorded I/Q samples')
 
 	# write audio data to file
-	out_fname = "../data/fmMonoBlock.wav"
-	wavfile.write(out_fname, int(audio_Fs), np.int16((audio_data/2)*32767))
-	print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
+	# out_fname = "../data/fmMonoBlock.wav"
+	# wavfile.write(out_fname, int(audio_Fs), np.int16((audio_data/2)*32767))
+	# print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
 
 	# uncomment assuming you wish to show some plots
 	# plt.show()
