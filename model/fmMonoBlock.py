@@ -17,6 +17,68 @@ import math
 from fmSupportLib import fmDemodArctan, fmPlotPSD
 # for take-home add your functions
 
+def lp_impulse_response_coeff(Fc, Fs, N_taps):
+	normCutoff = Fc/(Fs/2)
+
+	coefficients = np.zeros(N_taps)
+
+	for i in range(N_taps):
+		if (i == ((N_taps-1)/2)):
+			coefficients[i] = normCutoff
+
+		else:
+			# sinc = sin(x)/x
+			numerator = math.sin(math.pi * normCutoff * (i - ((N_taps-1) / 2)))
+			denominator = math.pi * normCutoff * (i - ((N_taps-1) / 2))
+
+			# normalize coefficients
+			coefficients[i] = normCutoff * (numerator/denominator)
+
+		# window the coefficients
+		coefficients[i] = coefficients[i] * ((math.sin((i*math.pi) / N_taps)) ** 2)
+
+	return coefficients
+
+def lp_filter(coefficients, data):
+
+	coeff_len = len(coefficients)
+	data_len = len(data)
+	filtered_data = np.zeros(data_len)
+
+	# discrete convolution
+	for n in range(data_len):
+		for k in range(coeff_len):
+			if n-k >= 0 and n-k < data_len:
+				filtered_data[n] += coefficients[k] * data[n-k]
+
+	# current unfiltered block is next block's filter state
+	
+	return filtered_data
+
+def myDemod(i_ds, q_ds, p_i=0, p_q=0):
+	prevI, prevQ = p_i, p_q
+	demod = np.array([])
+
+	for i in range (len(i_ds)):
+		currentI = i_ds[i]
+		currentQ = q_ds[i]
+
+		derivI = currentI - prevI
+		derivQ = currentQ - prevQ
+
+		if (currentI**2 + currentQ**2 == 0):
+			demod = np.append(demod, 0)
+		else:
+			numerator = currentI*derivQ - currentQ*derivI
+			denominator = currentI**2 + currentQ**2
+			#print(numerator/denominator)
+			demod = np.append(demod, numerator/denominator)
+
+		prevI = currentI
+		prevQ = currentQ
+
+	return demod, prevI, prevQ
+
 rf_Fs = 2.4e6
 rf_Fc = 100e3
 rf_taps = 151
@@ -24,7 +86,8 @@ rf_decim = 10
 
 audio_Fs = 48e3
 audio_decim = 5
-# add other settings for audio, like filter taps, ...
+audio_taps = 101
+audio_Fc = 16e3
 
 # flag that keeps track if your code is running for
 # in-lab (il_vs_th = 0) vs takehome (il_vs_th = 1)
@@ -48,11 +111,11 @@ if __name__ == "__main__":
 	if il_vs_th == 0:
 		# to be updated by you during the in-lab session based on firwin
 		# same principle  as for rf_coeff (but different arguments, of course)
-		audio_coeff = np.array([])
+		audio_coeff = signal.firwin(audio_taps, audio_Fc/(240e3/2), window=('hann'))
 	else:
 		# to be updated by you for the takehome exercise
 		# with your own code for impulse response generation
-		audio_coeff = np.array([])
+		audio_coeff = lp_impulse_response_coeff(audio_Fc, 240e3, audio_taps)
 
 	# set up the subfigures for plotting
 	subfig_height = np.array([0.8, 2, 1.6]) # relative heights of the subfigures
@@ -73,6 +136,9 @@ if __name__ == "__main__":
 
 	# audio buffer that stores all the audio blocks
 	audio_data = np.array([]) # used to concatenate filtered blocks (audio data)
+
+	prevI = 0
+	prevQ = 0
 
 	# if the number of samples in the last block is less than the block size
 	# it is fine to ignore the last few samples from the raw IQ file
@@ -104,27 +170,25 @@ if __name__ == "__main__":
 			# https://www.embedded.com/dsp-tricks-frequency-demodulation-algorithms/
 			# see more comments on fmSupportLib.py - take particular notice that
 			# you MUST have also "custom" state-saving for your own FM demodulator
-			dummy_fm, dummy_state = np.array([]), np.array([])
+			fm_demod, prevI, prevQ = myDemod(i_ds,q_ds, prevI, prevQ)
 
 		# extract the mono audio data through filtering
-		# if il_vs_th == 0:
-		# 	# to be updated by you during the in-lab session based on lfilter
-		# 	# same principle as for i_filt or q_filt (but different arguments)
-		# 	audio_filt = ... change as needed
-		# else:
-		# 	# to be updated by you for the takehome exercise
-		# 	# with your own code for BLOCK convolution
-		# 	audio_filt = ... change as needed
+		if il_vs_th == 0:
+			# to be updated by you during the in-lab session based on lfilter
+			# same principle as for i_filt or q_filt (but different arguments)
+			audio_filt = signal.lfilter(audio_coeff, 1.0, fm_demod) #change as needed
+		else:
+			# to be updated by you for the takehome exercise
+			# with your own code for BLOCK convolution
+			audio_filt = lp_filter(audio_coeff, fm_demod) #change as needed
 
 		# downsample audio data
 		# to be updated by you during in-lab (same code for takehome)
-		# audio_block = ... change as needed
+		audio_block = audio_filt[::audio_decim] #change as needed
 
 		# concatenate the most recently processed audio_block
 		# to the previous blocks stored already in audio_data
-		#
-		# audio_data = np.concatenate((audio_data, audio_block))
-		#
+		audio_data = np.concatenate((audio_data, audio_block))
 
 		# to save runtime select the range of blocks to log data
 		# this includes both saving binary files as well plotting PSD

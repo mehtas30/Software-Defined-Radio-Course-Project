@@ -51,6 +51,42 @@ import math
 from fmSupportLib import fmDemodArctan, fmPlotPSD
 # for take-home add your functions
 
+def lp_impulse_response_coeff(Fc, Fs, N_taps):
+	normCutoff = Fc/(Fs/2)
+
+	coefficients = np.zeros(N_taps)
+
+	for i in range(N_taps):
+		if (i == ((N_taps-1)/2)):
+			coefficients[i] = normCutoff
+
+		else:
+			# sinc = sin(x)/x
+			numerator = math.sin(math.pi * normCutoff * (i - ((N_taps-1) / 2)))
+			denominator = math.pi * normCutoff * (i - ((N_taps-1) / 2))
+
+			# normalize coefficients
+			coefficients[i] = normCutoff * (numerator/denominator)
+
+		# window the coefficients
+		coefficients[i] = coefficients[i] * ((math.sin((i*math.pi) / N_taps)) ** 2)
+
+	return coefficients
+
+def lp_filter(coefficients, data):
+
+	coeff_len = len(coefficients)
+	data_len = len(data)
+	filtered_data = np.zeros(data_len)
+
+	# discrete convolution
+	for n in range(data_len):
+		for k in range(coeff_len):
+			if n-k >= 0 and n-k < data_len:
+				filtered_data[n] += coefficients[k] * data[n-k]
+	
+	return filtered_data
+
 # the radio-frequency (RF) sampling rate
 # this sampling rate is either configured on RF hardware
 # or documented when a raw file with IQ samples is provided
@@ -76,13 +112,13 @@ audio_Fs = 48e3
 
 # complete your own settings for the mono channel
 # (cutoff freq, audio taps, decimation rate, ...)
-# audio_Fc = ... change as needed (see spec in lab document)
-# audio_decim = ... change as needed (see spec in lab document)
-# audio_taps = ... change as you see fit
+audio_Fc = 16e3 # change as needed (see spec in lab document)
+audio_decim = 5 # change as needed (see spec in lab document)
+audio_taps = 101 # change as you see fit
 
 # flag that keeps track if your code is running for
 # in-lab (il_vs_th = 0) vs takehome (il_vs_th = 1)
-il_vs_th = 0
+il_vs_th = 1
 
 if __name__ == "__main__":
 
@@ -124,32 +160,32 @@ if __name__ == "__main__":
 	if il_vs_th == 0:
 		# to be updated by you during the in-lab session based on firwin
 		# same principle  as for rf_coeff (but different arguments, of course)
-		audio_coeff = np.array([])
+		audio_coeff = signal.firwin(audio_taps, audio_Fc/(240e3/2), window=('hann'))
 	else:
 		# to be updated by you for the takehome exercise
 		# with your own code for impulse response generation
-		audio_coeff = np.array([])
+		audio_coeff = lp_impulse_response_coeff(audio_Fc, 240e3, audio_taps)
 
 	# extract the mono audio data through filtering
 	if il_vs_th == 0:
 		# to be updated by you during the in-lab session based on lfilter
 		# same principle as for i_filt or q_filt (but different arguments)
-		audio_filt = np.array([])
+		audio_filt = signal.lfilter(audio_coeff, 1.0, fm_demod)
 	else:
 		# to be updated by you for the takehome exercise
 		# with your own code for single pass convolution
-		audio_filt = np.array([])
+		audio_filt = lp_filter(audio_coeff, fm_demod)
 
 	# you should uncomment the plots below once you have processed the data
 
 	# PSD after extracting mono audio
-	# fmPlotPSD(ax1, audio_filt, (rf_Fs/rf_decim)/1e3, subfig_height[1], 'Extracted Mono')
+	fmPlotPSD(ax1, audio_filt, (rf_Fs/rf_decim)/1e3, subfig_height[1], 'Extracted Mono')
 
 	# downsample audio data (see the principle for i_ds or q_ds)
-	audio_data = np.array([]) # to be updated by you during in-lab (same code for takehome)
+	audio_data = audio_filt[::audio_decim] # to be updated by you during in-lab (same code for takehome)
 
 	# PSD after decimating mono audio
-	# fmPlotPSD(ax2, audio_data, audio_Fs/1e3, subfig_height[2], 'Downsampled Mono Audio')
+	fmPlotPSD(ax2, audio_data, audio_Fs/1e3, subfig_height[2], 'Downsampled Mono Audio')
 
 	# save PSD plots
 	fig.savefig("../data/fmMonoBasic.png")

@@ -14,7 +14,7 @@ Ontario, Canada
 #include "iofunc.h"
 #include "logfunc.h"
 
-int main()
+int main(int argc, char* argv[])
 {
 	// binary files can be generated through the
 	// Python models from the "../model/" sub-folder

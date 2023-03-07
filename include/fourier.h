@@ -26,12 +26,13 @@ void computeVectorMagnitude(const std::vector<std::complex<float>> &,
 	std::vector<float> &);
 
 // provide the prototype to estimate PSD
-// ...
-
-//////////////////////////////////////////////////////
+void estimatePSD(std::vector<float> &freq,
+				std::vector<float> &psd_est,
+				const std::vector<float> &samples,
+				const int freq_bins,
+				const float Fs);
 
 // added IDFT
-
 void IDFT(const std::vector<std::complex<float>> &, std::vector<std::complex<float>> &);
 
 void FFT_recursive(const std::vector<std::complex<float>> &, std::vector<std::complex<float>> &);

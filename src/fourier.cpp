@@ -31,12 +31,92 @@ void computeVectorMagnitude(const std::vector<std::complex<float>> &Xf, std::vec
 	}
 }
 
-// add your own code to estimate the PSD
+// function to estimate the PSD
+void estimatePSD(std::vector<float> &freq,
+				std::vector<float> &psd_est,
+				const std::vector<float> &samples,
+				const int freq_bins,
+				const float Fs)
+{
+	// frequency increment
 
-//////////////////////////////////////////////////////
+	float df = Fs / freq_bins;
+	int freq_size = (int)(freq_bins / 2);
+	int half_freq_bins = (int)(freq_bins / 2);
+	psd_est.clear();
+	psd_est.resize(half_freq_bins, 0.0);
+	// create frequency vector to be used on the X axis
+	freq.clear(); freq.resize(freq_size, 0.0);
+	for (int i = 0; i < freq_size; i++){
+		freq[i] = i*df;
+	}
+
+	// Hann window used to smooth the discrete data in order
+	// to reduce spectral leakage after Fourier Transform
+	std::vector<float> hann(freq_bins);
+	for (int i = 0; i < freq_bins; i++){
+		hann[i] = std::pow(std::sin(i * PI / freq_bins), 2);
+	}
+
+	// empty vector where PSD for each segment is computed
+	std::vector<float> psd_list;
+
+	/* samples should be a multiple of frequency bins, so
+	number of segments used for estimation is an integer */
+	int num_segments = (int)(samples.size() / freq_bins);
+
+	std::vector<float> samples_slice(freq_bins, 0.0);
+	std::vector<float> windowed_samples(freq_bins, 0.0);
+	samples_slice.clear();
+
+	// iterate through segments
+	for (int k = 0; k < num_segments; k++){
+		samples_slice.clear();
+		windowed_samples.clear();
+		windowed_samples.resize(freq_bins,0.0);
+		auto start = samples.begin() + (k*freq_bins);
+		auto end = samples.begin() + ((k+1)*freq_bins);
+		copy(start, end, samples_slice.begin());
+
+		// apply Hann window (point-wise multiplication)
+		for (int i = 0; i < freq_bins; i++){
+			windowed_samples[i] = samples_slice[i] * hann[i];
+			
+		}
+
+		std::vector<std::complex<float>> Xf;
+		// compute Fourier transform
+		DFT(windowed_samples, Xf);
+
+		std::vector<std::complex<float>> Xf_positive(half_freq_bins,static_cast<std::complex<float>>(0));
+		// keep positive half of spectrum since input is real
+		copy(Xf.begin(), Xf.begin() + half_freq_bins, Xf_positive.begin());
+		std::vector<float> psd_seg(half_freq_bins, 0.0);
+
+		for (int i = 0; i < (int)(psd_seg.size()); i++){
+			// compute signal power and double for negative frequency half
+			psd_seg[i] = (4 / (Fs * freq_bins)) * std::abs((std::pow(Xf_positive[i], 2)));
+			
+			// translate to dB
+			psd_seg[i] = 10 * std::log10(psd_seg[i]);
+			
+		}
+		// append
+		psd_list.insert(psd_list.end(), psd_seg.begin(), psd_seg.end());
+	}
+
+	// iterate through positive frequency bins and average them
+	for (int k = 0; k < half_freq_bins; k++){
+		for (int l = 0; l < num_segments; l++){
+			psd_est[k] += psd_list[k + (l * half_freq_bins)];
+		}
+
+		// compute estimate for each bin
+		psd_est[k] = psd_est[k] / num_segments;
+	}
+}
 
 // added IDFT
-
 void IDFT(const std::vector<std::complex<float>> &Xf, std::vector<std::complex<float>> &x) {
 	x.clear(); x.resize(Xf.size(), static_cast<std::complex<float>>(0));
 	for (int k = 0; k < (int)x.size(); k++) {

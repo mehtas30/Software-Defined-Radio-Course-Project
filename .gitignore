@@ -1,0 +1,27 @@
+#Ignore everything
+*
+
+#Except
+!.gitignore
+!README.md
+
+!*.pdf
+!*.docx
+!*.txt
+
+!*.py
+!*.cpp
+!*.h
+
+!*.wav
+!*.png
+!*.dat
+!*.gnuplot
+!*.bin
+!*.raw
+
+!Makefile
+!experiment
+
+#Even in subdirectories
+!*/
