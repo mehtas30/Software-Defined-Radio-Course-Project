@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
 	# read the raw IQ data from the recorded file
 	# IQ data is assumed to be in 8-bits unsigned (and interleaved)
-	in_fname = "../data/iq_samples.raw"
+	in_fname = "../data/samples_u8.raw"
 	raw_data = np.fromfile(in_fname, dtype='uint8')
 	print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
 	# IQ data is normalized between -1 and +1 in 32-bit float format
@@ -199,9 +199,9 @@ if __name__ == "__main__":
 	print('Finished processing all the blocks from the recorded I/Q samples')
 
 	# write audio data to file
-	# out_fname = "../data/fmMonoBlock.wav"
-	# wavfile.write(out_fname, int(audio_Fs), np.int16((audio_data/2)*32767))
-	# print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
+	out_fname = "../data/fmMonoBlock.wav"
+	wavfile.write(out_fname, int(audio_Fs), np.int16((audio_data/2)*32767))
+	print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
 
 	# uncomment assuming you wish to show some plots
 	# plt.show()
