@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 
 	std::cerr << "Operating in mode " << mode << std::endl;
 
-	int rf_fs;
+	int rf_fs = 2400000;
 	int rf_fc = 100000;
 	int rf_taps = 151;
 	int rf_decim = 10;
@@ -53,6 +53,10 @@ int main(int argc, char* argv[])
 	int audio_decim = 5;
 	int audio_taps = 101;
 	int audio_fc = 16000;
+	std::vector<float> audio_data;
+
+	int block_size = 1024 * rf_decim * audio_decim * 2;
+	int block_count = 0;
 
 	if (mode == 0){ 	 rf_fs = 2400000; audio_fs = 48000; }
 	else if (mode == 1){ rf_fs = 1152000; audio_fs = 48000; }
@@ -61,8 +65,20 @@ int main(int argc, char* argv[])
 
 	// read from .raw
 
-	// select block size that is multiple of KB
-	// and multiple of decimation factors
+	fmMonoProcessing(rf_fs, rf_fc, rf_taps, rf_decim, audio_fs, audio_decim, audio_taps, audio_fc, audio_data);
+
+	std::vector<short int> final_audio(block_size);
+	for (int i=0; i<audio_data.size(); i++) {
+		if (std::isnan(audio_data[i])) final_audio[i] = 0;
+		else final_audio[i] = static_cast<short int>(audio_data[i] * 16384);
+	}
+
+	fwrite(&final_audio[0], sizeof(short int), final_audio.size(), stdout);
+
+	return 0;
+}
+
+void fmMonoProcessing(int rf_fs, int rf_fc, int rf_taps, int rf_decim, int audio_fs, int audio_decim, int audio_taps, int audio_fc, std::vector<float> &audio_data) {
 	int block_size = 1024 * rf_decim * audio_decim * 2;
 	int block_count = 0;
 
@@ -84,7 +100,9 @@ int main(int argc, char* argv[])
 	std::vector<float> audio_state(audio_taps-1, 0.0);
 
 	// audio buffer that stores all audio blocks
-	std::vector<float> audio_data;
+
+	std::vector<float> i_filt;
+	std::vector<float> q_filt;
 
 	for (;; block_count++){
 		std::vector<float> iq_block(block_size * 2);
@@ -96,23 +114,44 @@ int main(int argc, char* argv[])
 		std::cerr << "Read block " << block_count << std::endl;
 
 		// separate iq_block into I and Q
-		std::vector<float> i_filt(block_size);
-		std::vector<float> q_filt(block_size);
+		std::vector<float> i_block(block_size);
+		std::vector<float> q_block(block_size);
 		int j = 0;
 		for (int i = 0; i < iq_block.size(); i+=2){
-			i_filt[j] = iq_block[i];
-			q_filt[j] = iq_block[i+1];
+			i_block[j] = iq_block[i];
+			q_block[j] = iq_block[i+1];
 			j++;
 		}
 		
-		LPFilter(i_filt, i_data_slice, state_i_lpf_100k);
-		LPFilter(q_filt, q_data_slice, state_q_lpf_100k);
+		LPFilter(i_filt, i_block, rf_coeff, state_i_lpf_100k);
+		LPFilter(q_filt, q_block, rf_coeff, state_q_lpf_100k);
 
 		// decim
+		std::vector<float> i_ds;
+		std::vector<float> q_ds;
 
+		i_ds = downSample(i_filt,rf_decim);
+		q_ds = downSample(q_filt,rf_decim);
+
+		std::vector<float> fm_demod;
 		demodFM(i_ds, q_ds, fm_demod, prevI, prevQ);
 
+		std::vector<float> audio_filt;
+		LPFilter(audio_filt, fm_demod, audio_coeff, audio_state);
+
+		std::vector<float> audio_block;
+		audio_block = downSample(audio_filt,audio_decim);
+
+		audio_data.insert(audio_data.end(), audio_block.begin(), audio_block.end());
+	}
+}
+
+std::vector<float> downSample(std::vector<float> original, int decim) {
+	std::vector<float> downSample;
+
+	for (int i=0; i < original.size(); i=i+decim) {
+		downSample.push_back(original[i]);
 	}
 
-	return 0;
+	return downSample;
 }
