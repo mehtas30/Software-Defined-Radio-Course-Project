@@ -7,12 +7,12 @@ McMaster University
 Ontario, Canada
 */
 
-#include "dy4.h"
+#include "../include/dy4.h"
 #include "../include/filter.h"
-#include "fourier.h"
-#include "genfunc.h"
-#include "iofunc.h"
-#include "logfunc.h"
+#include "../include/fourier.h"
+#include "../include/genfunc.h"
+#include "../include/iofunc.h"
+#include "../include/logfunc.h"
 
 int main(int argc, char* argv[])
 {
@@ -54,63 +54,64 @@ int main(int argc, char* argv[])
 	int audio_taps = 101;
 	int audio_fc = 16000;
 
-	if (mode == 0){
-		rf_fs = 2400000;
-		audio_fs = 48000;
-		
-		// read from .raw
+	if (mode == 0){ 	 rf_fs = 2400000; audio_fs = 48000; }
+	else if (mode == 1){ rf_fs = 1152000; audio_fs = 48000; }
+	else if (mode == 2){ rf_fs = 2400000; audio_fs = 44100; }
+	else if (mode == 3){ rf_fs = 2304000; audio_fs = 44100; }
 
-		std::vector<float> rf_coeff;
-		impulseResponseLPF(rf_fs, rf_fc, rf_taps, rf_coeff);
+	// read from .raw
 
-		int block_size = 1024 * rf_decim * audio_decim * 2;
-		int block_count = 0;
+	// select block size that is multiple of KB
+	// and multiple of decimation factors
+	int block_size = 1024 * rf_decim * audio_decim * 2;
+	int block_count = 0;
 
-		std::vector<float> state_i_lpf_100k(rf_taps-1, 0.0);
-		std::vector<float> state_q_lpf_100k(rf_taps-1, 0.0);
-		std::vector<float> i_filt, q_filt;
+	// coefficients for IQ -> IF LPFs, Fc = 100kHz
+	std::vector<float> rf_coeff;
+	impulseResponseLPF(rf_fs, rf_fc, rf_taps, rf_coeff);
 
-		float prevI = 0;
-		float prevQ = 0;
-		std::vector<float> audio_data;
-		std::vector<float> i_data_slice, q_data_slice;
+	// coefficients for IF -> audio LPF, Fc = 16kHz
+	std::vector<float> audio_coeff;
+	impulseResponseLPF(audio_fs, audio_fc, audio_taps, audio_coeff);
 
-		for (;; block_count++){
-			std::vector<float> iq_block(block_size);
-			readStdinBlockData(block_size, block_count, iq_block);
-			if((std::cin.rdstate()) != 0){
-				std::cerr << "End of input stream reached!" << std::endl;
-				exit(1);
-			}
-			std::cerr << "Read block " << block_count << std::endl;
+	// state saving for extracting FM band (Fc = 100kHz)
+	std::vector<float> state_i_lpf_100k(rf_taps-1, 0.0);
+	std::vector<float> state_q_lpf_100k(rf_taps-1, 0.0);
+	// state saving for FM demodulation
+	float prevI = 0;
+	float prevQ = 0;
+	// state saving for extracting mono audio (Fc = 16kHz)
+	std::vector<float> audio_state(audio_taps-1, 0.0);
 
-			auto start = iq_block.begin() + (block_count*block_size);
-			auto end = iq_block.begin() + ((block_count+1)*block_size);
-			copy(start, end, i_data_slice.begin());
-			
-			convolveFIR(i_filt, i_data_slice, state_i_lpf_100k);
-			convolveFIR(q_filt, q_data_slice, state_q_lpf_100k);
+	// audio buffer that stores all audio blocks
+	std::vector<float> audio_data;
 
-			// decim
-
-			demodFM(i_ds, q_ds, fm_demod, prevI, prevQ);
-
+	for (;; block_count++){
+		std::vector<float> iq_block(block_size * 2);
+		readStdinBlockData(block_size * 2, block_count, iq_block);
+		if((std::cin.rdstate()) != 0){
+			std::cerr << "End of input stream reached!" << std::endl;
+			exit(1);
 		}
-	}
-	else if (mode == 1){
-		rf_fs = 1152000;
-		audio_fs = 48000;
+		std::cerr << "Read block " << block_count << std::endl;
 
-	}
-	else if (mode == 2){
-		rf_fs = 2400000;
-		audio_fs = 44100;
-
-	}
-	else if (mode == 3){
-		rf_fs = 2304000;
-		audio_fs = 44100;
+		// separate iq_block into I and Q
+		std::vector<float> i_filt(block_size);
+		std::vector<float> q_filt(block_size);
+		int j = 0;
+		for (int i = 0; i < iq_block.size(); i+=2){
+			i_filt[j] = iq_block[i];
+			q_filt[j] = iq_block[i+1];
+			j++;
+		}
 		
+		LPFilter(i_filt, i_data_slice, state_i_lpf_100k);
+		LPFilter(q_filt, q_data_slice, state_q_lpf_100k);
+
+		// decim
+
+		demodFM(i_ds, q_ds, fm_demod, prevI, prevQ);
+
 	}
 
 	return 0;

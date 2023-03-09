@@ -16,22 +16,21 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 	// allocate memory for the impulse response
 	h.clear(); h.resize(num_taps, 0.0);
 
-	// the rest of the code in this function is to be completed by you
-	// based on your understanding and the Python code from the first lab
 	float normCutoff = (Fc*2)/Fs;
+	float inverse_taps = 1/num_taps;
 
 	for (int i = 0; i < num_taps; i++) {
-		if (i == (num_taps-1)/2) {
+		if (i == (num_taps-1) * 0.5) {
 			h[i] = 0;
 		}
 		else {
-			float numerator = sin(PI * normCutoff * (i - (num_taps - 1)/2));
-			float denominator = PI * normCutoff * (i - (num_taps-1)/2);
+			float numerator = sin(PI * normCutoff * (i - ((num_taps-1) * 0.5)));
+			float denominator = PI * normCutoff * (i - ((num_taps-1) * 0.5));
 
-			h[i] = normCutoff * (numerator/denominator);
+			h[i] = normCutoff * (numerator / denominator);
 		}
 
-		h[i] = h[i] * pow((sin((i * PI)/num_taps)), 2);
+		h[i] = h[i] * pow(sin(i * PI * inverse_taps), 2);
 	}
 }
 
