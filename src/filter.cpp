@@ -36,21 +36,27 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 }
 
 // function to compute the filtered output "y" by doing the convolution
-// of the input data "x" with the impulse response "h"
-void convolveFIR(std::vector<float> &y, const std::vector<float> &x, const std::vector<float> &h)
+// of the input data "x" with the impulse response "h" in blocks
+void LPFilter(std::vector<float> &y, 
+			const std::vector<float> &x, 
+			const std::vector<float> &h, 
+			std::vector<float> &state)
 {
 	// allocate memory for the output (filtered) data
 	y.clear(); y.resize(x.size(), 0.0);
 
-	// the rest of the code in this function is to be completed by you
-	// based on your understanding and the Python code from the first lab
+	// discrete convolution
 	for (int n = 0; n < (int)(x.size()); n++){
 		for (int k = 0; k < (int)(h.size()); k++){
-			if (n-k >= 0 && n-k < (int)(x.size())){
+			if (n-k >= 0){
 				y[n] += h[k] * x[n-k];
 			}
+			// negative n-k correspond to right end of prev block
+			else{ y[n] += h[k] * state[n-k]; }
 		}
 	}
+	// state saving
+	std::copy(x.end()-state.size(), x.end(), state.begin());
 }
 
 void demodFM(const std::vector<float> &i_ds, const std::vector<float> &q_ds, std::vector<float> &demod, float p_i=0, float p_q=0) {
