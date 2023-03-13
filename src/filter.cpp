@@ -58,8 +58,8 @@ void LPFilter(std::vector<float> &y,
 	std::copy(x.end()-state.size(), x.end(), state.begin());
 }
 
-void demodFM(const std::vector<float> &i_ds, const std::vector<float> &q_ds, std::vector<float> &demod, float p_i=0, float p_q=0) {
-	for (int i=0; i < i_ds.size(); i++) {
+void demodFM(const std::vector<float> &i_ds, const std::vector<float> &q_ds, std::vector<float> &demod, float p_i, float p_q) {
+	for (unsigned int i=0; i < i_ds.size(); i++) {
 		float currI = i_ds[i];
 		float currQ = q_ds[i];
 
@@ -77,5 +77,12 @@ void demodFM(const std::vector<float> &i_ds, const std::vector<float> &q_ds, std
 
 		p_i = currI;
 		p_q = currQ;
+	}
+}
+
+void downSample(const std::vector<float> &original, std::vector<float> &downsampled, int decim) {
+
+	for (unsigned int i=0; i < original.size(); i=i+decim) {
+		downsampled.push_back(original[i]);
 	}
 }

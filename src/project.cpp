@@ -14,73 +14,11 @@ Ontario, Canada
 #include "../include/iofunc.h"
 #include "../include/logfunc.h"
 
-int main(int argc, char* argv[])
+void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim, 
+						int audio_fs, int audio_fc, int audio_taps, int audio_decim, 
+						std::vector<float> &processed_data,
+						int block_size, int block_count) 
 {
-	// binary files can be generated through the
-	// Python models from the "../model/" sub-folder
-	const std::string in_fname = "../data/fm_demod_10.bin";
-	std::vector<float> bin_data;
-	readBinData(in_fname, bin_data);
-
-	int mode = 0;
-
-	if (argc < 2){
-		std::cerr << "Operating in default mode 0" << std::endl;
-	}
-	else if (argc == 2){
-		mode = atoi(argv[1]);
-		if (mode > 3){
-			std::cerr << "Wrong mode " << mode << std::endl;
-			exit(1);
-		}
-	}
-	else{
-		std::cerr << "Usage: " << argv[0] << std::endl;
-		std::cerr << "or " << std::endl;
-		std::cerr << "Usage " << argv[0] << " <mode>" << std::endl;
-		std::cerr << "\t\t <mode> is a value from 0 to 3" << std::endl;
-		exit(1);
-	}
-
-	std::cerr << "Operating in mode " << mode << std::endl;
-
-	int rf_fs = 2400000;
-	int rf_fc = 100000;
-	int rf_taps = 151;
-	int rf_decim = 10;
-
-	int audio_fs;
-	int audio_decim = 5;
-	int audio_taps = 101;
-	int audio_fc = 16000;
-	std::vector<float> audio_data;
-
-	int block_size = 1024 * rf_decim * audio_decim * 2;
-	int block_count = 0;
-
-	if (mode == 0){ 	 rf_fs = 2400000; audio_fs = 48000; }
-	else if (mode == 1){ rf_fs = 1152000; audio_fs = 48000; }
-	else if (mode == 2){ rf_fs = 2400000; audio_fs = 44100; }
-	else if (mode == 3){ rf_fs = 2304000; audio_fs = 44100; }
-
-	// read from .raw
-
-	fmMonoProcessing(rf_fs, rf_fc, rf_taps, rf_decim, audio_fs, audio_decim, audio_taps, audio_fc, audio_data);
-
-	std::vector<short int> final_audio(block_size);
-	for (int i=0; i<audio_data.size(); i++) {
-		if (std::isnan(audio_data[i])) final_audio[i] = 0;
-		else final_audio[i] = static_cast<short int>(audio_data[i] * 16384);
-	}
-
-	fwrite(&final_audio[0], sizeof(short int), final_audio.size(), stdout);
-
-	return 0;
-}
-
-void fmMonoProcessing(int rf_fs, int rf_fc, int rf_taps, int rf_decim, int audio_fs, int audio_decim, int audio_taps, int audio_fc, std::vector<float> &audio_data) {
-	int block_size = 1024 * rf_decim * audio_decim * 2;
-	int block_count = 0;
 
 	// coefficients for IQ -> IF LPFs, Fc = 100kHz
 	std::vector<float> rf_coeff;
@@ -117,41 +55,120 @@ void fmMonoProcessing(int rf_fs, int rf_fc, int rf_taps, int rf_decim, int audio
 		std::vector<float> i_block(block_size);
 		std::vector<float> q_block(block_size);
 		int j = 0;
-		for (int i = 0; i < iq_block.size(); i+=2){
+		for (unsigned int i = 0; i < iq_block.size(); i+=2){
 			i_block[j] = iq_block[i];
 			q_block[j] = iq_block[i+1];
 			j++;
 		}
 		
+		// LPF (Fc = 100kHz)
 		LPFilter(i_filt, i_block, rf_coeff, state_i_lpf_100k);
 		LPFilter(q_filt, q_block, rf_coeff, state_q_lpf_100k);
 
-		// decim
+		// from 2.4MS/s -> 240kS/s (decim=10)
 		std::vector<float> i_ds;
 		std::vector<float> q_ds;
+		downSample(i_filt, i_ds, rf_decim);
+		downSample(q_filt, q_ds, rf_decim);
 
-		i_ds = downSample(i_filt,rf_decim);
-		q_ds = downSample(q_filt,rf_decim);
-
+		// FM demodulation
 		std::vector<float> fm_demod;
 		demodFM(i_ds, q_ds, fm_demod, prevI, prevQ);
 
+		// LPF (Fc = 16kHz)
 		std::vector<float> audio_filt;
 		LPFilter(audio_filt, fm_demod, audio_coeff, audio_state);
 
-		std::vector<float> audio_block;
-		audio_block = downSample(audio_filt,audio_decim);
+		// from 240kS/s -> 48kS/s
+		processed_data.clear(); processed_data.resize(block_size);
+		downSample(audio_filt, processed_data, audio_decim);
+		
+		if (block_count == 10){
+			std::vector<float> vector_index;
+			genIndexVector(vector_index, fm_demod.size());
+			logVector("demod_time", vector_index, fm_demod);
+			
+			std::vector<std::complex<float>> Xf;
+			DFT(fm_demod, Xf);
+			
+			std::vector<float> Xmag;
+			computeVectorMagnitude(Xf, Xmag);
+			
+			vector_index.clear();
+			genIndexVector(vector_index, Xmag.size());
+			logVector("demod_freq", vector_index, Xmag);
+			
+			std::vector<float> freq, psd_est;
+			estimatePSD(freq, psd_est, fm_demod, block_size, 240);
+			logVector("demod_psd", freq, psd_est);
+		}
 
-		audio_data.insert(audio_data.end(), audio_block.begin(), audio_block.end());
+		//audio_data.insert(audio_data.end(), processed_data.begin(), processed_data.end());
+		
+		// writing by block to stdout
+		std::vector<short int> audio_data(block_size);
+		for (unsigned int k=0; k < processed_data.size(); k++){
+			if (std::isnan(processed_data[k])) audio_data[k] = 0;
+			// prepare a block of audio data to be redirected to stdout at once
+			else audio_data[k] = static_cast<short int>(processed_data[k] * 16384);
+		}
+		
+		fwrite(&audio_data[0], sizeof(short int), audio_data.size(), stdout);
+		//std::cerr << "Write block " << block_count << std::endl;
 	}
 }
 
-std::vector<float> downSample(std::vector<float> original, int decim) {
-	std::vector<float> downSample;
+int main(int argc, char* argv[])
+{
+	// binary files can be generated through the
+	// Python models from the "../model/" sub-folder
+	const std::string in_fname = "../data/fm_demod_10.bin";
+	std::vector<float> bin_data;
+	readBinData(in_fname, bin_data);
 
-	for (int i=0; i < original.size(); i=i+decim) {
-		downSample.push_back(original[i]);
+	int mode = 0;
+
+	if (argc < 2){
+		std::cerr << "Operating in default mode 0" << std::endl;
+	}
+	else if (argc == 2){
+		mode = atoi(argv[1]);
+		if (mode > 3){
+			std::cerr << "Wrong mode " << mode << std::endl;
+			exit(1);
+		}
+	}
+	else{
+		std::cerr << "Usage: " << argv[0] << std::endl;
+		std::cerr << "or " << std::endl;
+		std::cerr << "Usage " << argv[0] << " <mode>" << std::endl;
+		std::cerr << "\t\t <mode> is a value from 0 to 3" << std::endl;
+		exit(1);
 	}
 
-	return downSample;
+	std::cerr << "Operating in mode " << mode << std::endl;
+
+	int rf_fs = 2400000;
+	int rf_fc = 100000;
+	int rf_taps = 151;
+	int rf_decim = 10;
+
+	int audio_fs = 48000;
+	int audio_decim = 5;
+	int audio_taps = 101;
+	int audio_fc = 16000;
+	std::vector<float> processed_data;
+
+	int block_size = 1024 * rf_decim * audio_decim * 2;
+	int block_count = 0;
+
+	if (mode == 0){ 	 rf_fs = 2400000; audio_fs = 48000; }
+	else if (mode == 1){ rf_fs = 1152000; audio_fs = 48000; }
+	else if (mode == 2){ rf_fs = 2400000; audio_fs = 44100; }
+	else if (mode == 3){ rf_fs = 2304000; audio_fs = 44100; }
+
+	fmMonoProcessing(rf_fs, rf_fc, rf_taps, rf_decim, audio_fs, audio_decim, audio_taps, audio_fc, processed_data, block_size, block_count);
+
+	return 0;
 }
+
