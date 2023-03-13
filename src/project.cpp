@@ -130,8 +130,8 @@ void fmMonoProcessing(int rf_fs, int rf_fc, int rf_taps, int rf_decim, int audio
 		std::vector<float> i_ds;
 		std::vector<float> q_ds;
 
-		i_ds = downSample(i_filt,rf_decim);
-		q_ds = downSample(q_filt,rf_decim);
+		i_ds = downSample(i_filt, rf_decim);
+		q_ds = downSample(q_filt, rf_decim);
 
 		std::vector<float> fm_demod;
 		demodFM(i_ds, q_ds, fm_demod, prevI, prevQ);
@@ -149,7 +149,7 @@ void fmMonoProcessing(int rf_fs, int rf_fc, int rf_taps, int rf_decim, int audio
 std::vector<float> downSample(std::vector<float> original, int decim) {
 	std::vector<float> downSample;
 
-	for (int i=0; i < original.size(); i=i+decim) {
+	for (int i = 0; i < original.size(); i += decim) {
 		downSample.push_back(original[i]);
 	}
 
