@@ -1,10 +1,3 @@
-# Comp Eng 3DY4 (Computer Systems Integration Project)
-#
-# Copyright by Nicola Nicolici
-# Department of Electrical and Computer Engineering
-# McMaster University
-# Ontario, Canada
-
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
 from scipy import signal
@@ -12,6 +5,77 @@ import numpy as np
 import math
 
 from fmSupportLib import fmDemodArctan, fmPlotPSD
+
+def bandpassFilt(fb, fe, fs, nTaps):
+    normCent = ((fe+fb)/2)/(fs/2)
+    normPass = (fe - fb)/(fs/2)
+
+    h = np.zeros(nTaps-1)
+
+    for i in range (nTaps-1):
+        if (i == (nTaps-1)/2):
+            h[i] = normPass
+        else:
+            numerator = math.sin(math.pi * (normPass/2) * (i - (nTaps-1)/2))
+            denominator = math.pi * (normPass/2) * (i - (nTaps-1)/2)
+            h[i] = normPass * (numerator/denominator)
+
+        h[i] = h[i] * math.cos(i * math.pi * normCent)
+        h[i] = h[i] * math.sin((i * math.pi)/nTaps)**2
+
+def fmPll(pllIn, freq, Fs, nocoScale = 1.0, phaseAdjust = 0.0, normBandwidth = 0.01):
+    Cp = 2.666
+    Ci = 3.555
+
+    Kp = (normBandwidth) * Cp
+    Ki = (normBandwidth*normBandwidth) * Ci
+
+    ncoOut = np.empty(len(pllIn) + 1)
+
+    integrator = 0.0
+    phaseEst = 0.0
+    feedbackI = 1.0
+    feedbackQ = 0.0
+    ncoOut[0] = 1.0
+    trigOffset = 0
+
+    for i in range (len(pllIn)):
+        errorI = pllIn[i] * (+feedbackI)
+        errorQ = pllIn[i] * (-feedbackQ)
+
+        errorD = math.atan2(errorQ, errorI)
+
+        integrator = integrator + Ki*errorD
+
+        phaseEst = phaseEst + Kp*errorD + integrator
+
+        trigOffset += 1
+        trigArg = 2*math.pi * (freq/Fs) * (trigOffset) + phaseEst
+        feedbackI = math.cos(trigArg)
+        feedbackQ = math.sin(trigArg)
+        ncoOut[i+1] = math.cos(trigArg * nocoScale + phaseAdjust)
+
+    return ncoOut
+
+def filter(coefficients, data, state):
+
+	state_len = len(state)
+	data_len = len(data)
+	filtered_data = np.zeros(data_len)
+
+	# discrete convolution
+	for n in range(data_len):
+		for k in range(len(coefficients)):
+			if n-k >= 0:
+				filtered_data[n] += coefficients[k] * data[n-k]
+			else:
+				# negative n-k correspond to right end of previous block
+				filtered_data[n] += coefficients[k] * state[n-k]
+
+	# current unfiltered block is next block's filter state
+	filter_state = data[-state_len:]
+	
+	return filtered_data, filter_state
 
 def lp_impulse_response_coeff(Fc, Fs, N_taps):
 	normCutoff = Fc/(Fs/2)
@@ -34,32 +98,6 @@ def lp_impulse_response_coeff(Fc, Fs, N_taps):
 		coefficients[i] = coefficients[i] * ((math.sin((i*math.pi) / N_taps)) ** 2)
 
 	return coefficients
-
-def lp_filter(coefficients, data, state):
-
-	state_len = len(state)
-	data_len = len(data)
-	filtered_data = np.zeros(data_len)
-
-	# discrete convolution
-	for n in range(data_len):
-		for k in range(len(coefficients)):
-			if n-k >= 0:
-				filtered_data[n] += coefficients[k] * data[n-k]
-			else:
-				# negative n-k correspond to right end of previous block
-				filtered_data[n] += coefficients[k] * state[n-k]
-
-	# current unfiltered block is next block's filter state
-	filter_state = data[-state_len:]
-	
-	return filtered_data, filter_state
-
-def bp_impulse_response_coeff():
-	pass
-
-def bp_filter(coefficients, data):
-	pass
 
 def myDemod(i_ds, q_ds, p_i=0, p_q=0):
 	prevI, prevQ = p_i, p_q
@@ -167,48 +205,8 @@ if __name__ == "__main__":
 		# see more comments on fmSupportLib.py - take particular notice that
 		# you MUST have also "custom" state-saving for your own FM demodulator
 		fm_demod, prevI, prevQ = myDemod(i_ds, q_ds, prevI, prevQ)
-
-		# extract the mono audio data through filtering
-		audio_filt, audio_state = lp_filter(audio_coeff, fm_demod, audio_state)
-
-		# downsample audio data
-		audio_block = audio_filt[::audio_decim]
-
-		# concatenate the most recently processed audio_block
-		# to the previous blocks stored already in audio_data
+		bpCoeff = bandpassFilt(18.5e3, 19.5e3, 240e3, audio_taps)
+		audio_filt, audio_state = filter(bpCoeff, fm_demod, audio_state)
+		audio_block = fmPll(audio_filt,19e3,240e3,2,0,0.01)
 		audio_data = np.concatenate((audio_data, audio_block))
 
-		# to save runtime select the range of blocks to log data
-		# this includes both saving binary files as well plotting PSD
-		# below we assume we want to plot for graphs for blocks 10 and 11
-		if block_count == 10:
-
-		 	# plot PSD of selected block after FM demodulation
-		 	#ax0.clear()
-			fmPlotPSD(ax0, fm_demod, (rf_Fs/rf_decim)/1e3, subfig_height[0], \
-		 			'Demodulated FM (block ' + str(block_count) + ')')
-		 	# output binary file name (where samples are written from Python)
-			fm_demod_fname = "../data/fm_demod_" + str(block_count) + ".bin"
-		 	# create binary file where each sample is a 32-bit float
-			fm_demod.astype('float32').tofile(fm_demod_fname)
-
-		 	# plot PSD of selected block after extracting mono audio
-		 	# ... change as needed
-
-		 	# plot PSD of selected block after downsampling mono audio
-		 	# ... change as needed
-
-		 	# save figure to file
-		 	#fig.savefig("../data/fmMonoBlock" + str(block_count) + ".png")
-
-		block_count += 1
-
-	print('Finished processing all the blocks from the recorded I/Q samples')
-
-	# write audio data to file
-	out_fname = "../data/fmMonoBlock.wav"
-	wavfile.write(out_fname, int(audio_Fs), np.int16((audio_data/2)*32767))
-	print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
-
-	# uncomment assuming you wish to show some plots
-	# plt.show()
