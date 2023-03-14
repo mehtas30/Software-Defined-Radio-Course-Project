@@ -23,10 +23,12 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 	// coefficients for IQ -> IF LPFs, Fc = 100kHz
 	std::vector<float> rf_coeff;
 	impulseResponseLPF(rf_fs, rf_fc, rf_taps, rf_coeff);
+	
 
 	// coefficients for IF -> audio LPF, Fc = 16kHz
 	std::vector<float> audio_coeff;
 	impulseResponseLPF(audio_fs, audio_fc, audio_taps, audio_coeff);
+	
 
 	// state saving for extracting FM band (Fc = 100kHz)
 	std::vector<float> state_i_lpf_100k(rf_taps-1, 0.0);
@@ -36,8 +38,6 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 	float prevQ = 0;
 	// state saving for extracting mono audio (Fc = 16kHz)
 	std::vector<float> audio_state(audio_taps-1, 0.0);
-
-	// audio buffer that stores all audio blocks
 
 	std::vector<float> i_filt;
 	std::vector<float> q_filt;
@@ -59,9 +59,9 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			i_block[j] = iq_block[i];
 			q_block[j] = iq_block[i+1];
 			j++;
-		}
+		};
 		
-		// LPF (Fc = 100kHz)
+		// LPF (Fc = 100kHz) extract FM band
 		LPFilter(i_filt, i_block, rf_coeff, state_i_lpf_100k);
 		LPFilter(q_filt, q_block, rf_coeff, state_q_lpf_100k);
 
@@ -80,13 +80,19 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		LPFilter(audio_filt, fm_demod, audio_coeff, audio_state);
 
 		// from 240kS/s -> 48kS/s
-		processed_data.clear(); processed_data.resize(block_size);
+		processed_data.clear();
 		downSample(audio_filt, processed_data, audio_decim);
 		
 		if (block_count == 10){
 			std::vector<float> vector_index;
 			genIndexVector(vector_index, fm_demod.size());
-			logVector("demod_time", vector_index, fm_demod);
+			//logVector("demod_time", vector_index, fm_demod);
+			//logVector("i_block_time", vector_index, i_block);
+			//logVector("q_block_time", vector_index, q_block);
+			//logVector("iq_block_time", vector_index, iq_block);
+			logVector("i_filt_time", vector_index, i_filt);
+			logVector("q_filt_time", vector_index, q_filt);
+			logVector("audio_filt_time", vector_index, audio_filt);
 			
 			std::vector<std::complex<float>> Xf;
 			DFT(fm_demod, Xf);
@@ -102,11 +108,9 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			estimatePSD(freq, psd_est, fm_demod, block_size, 240);
 			logVector("demod_psd", freq, psd_est);
 		}
-
-		//audio_data.insert(audio_data.end(), processed_data.begin(), processed_data.end());
 		
 		// writing by block to stdout
-		std::vector<short int> audio_data(block_size);
+		std::vector<short int> audio_data(block_size / rf_decim / audio_decim);
 		for (unsigned int k=0; k < processed_data.size(); k++){
 			if (std::isnan(processed_data[k])) audio_data[k] = 0;
 			// prepare a block of audio data to be redirected to stdout at once
@@ -167,8 +171,11 @@ int main(int argc, char* argv[])
 	else if (mode == 2){ rf_fs = 2400000; audio_fs = 44100; }
 	else if (mode == 3){ rf_fs = 2304000; audio_fs = 44100; }
 
-	fmMonoProcessing(rf_fs, rf_fc, rf_taps, rf_decim, audio_fs, audio_decim, audio_taps, audio_fc, processed_data, block_size, block_count);
+	fmMonoProcessing(rf_fs, rf_fc, rf_taps, rf_decim, audio_fs, audio_fc, audio_taps, audio_decim, processed_data, block_size, block_count);
 
+	std::cerr << "done" << std::endl;
 	return 0;
 }
 
+// cat../data/samples_u8.raw | ./project | aplay -c 1 -f S16_LE -r 48000
+// gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png

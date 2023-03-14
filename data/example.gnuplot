@@ -9,7 +9,7 @@ set multiplot layout 3,1 scale 1.0,1.0  # set two plots for this figure
 # time domain
 set ylabel 'Sample value'               # set y-axis label
 set xlabel 'Sample #'                   # set x-axis label
-set yrange [-2:2]                       # set y plot range
+set yrange [-2:10]                       # set y plot range
 set xrange [0:511]                      # set x plot range
 plot '../data/demod_time.dat' using 1:2 with lines lt 1 lw 2 lc rgb '#000088' notitle
 

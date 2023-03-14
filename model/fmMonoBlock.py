@@ -181,16 +181,16 @@ if __name__ == "__main__":
 		# to save runtime select the range of blocks to log data
 		# this includes both saving binary files as well plotting PSD
 		# below we assume we want to plot for graphs for blocks 10 and 11
-		if block_count == 10:
+		#if block_count == 10:
 
 		 	# plot PSD of selected block after FM demodulation
-		 	ax0.clear()
-		 	fmPlotPSD(ax0, fm_demod, (rf_Fs/rf_decim)/1e3, subfig_height[0], \
-		 			'Demodulated FM (block ' + str(block_count) + ')')
+		 	#ax0.clear()
+		 	#fmPlotPSD(ax0, fm_demod, (rf_Fs/rf_decim)/1e3, subfig_height[0], \
+		 	#		'Demodulated FM (block ' + str(block_count) + ')')
 		 	# output binary file name (where samples are written from Python)
-		 	fm_demod_fname = "../data/fm_demod_" + str(block_count) + ".bin"
+		 	#fm_demod_fname = "../data/fm_demod_" + str(block_count) + ".bin"
 		 	# create binary file where each sample is a 32-bit float
-			fm_demod.astype('float32').tofile(fm_demod_fname)
+			#fm_demod.astype('float32').tofile(fm_demod_fname)
 
 		 	# plot PSD of selected block after extracting mono audio
 		 	# ... change as needed
@@ -199,7 +199,7 @@ if __name__ == "__main__":
 		 	# ... change as needed
 
 		 	# save figure to file
-		 	fig.savefig("../data/fmMonoBlock" + str(block_count) + ".png")
+		 	#fig.savefig("../data/fmMonoBlock" + str(block_count) + ".png")
 
 		block_count += 1
 

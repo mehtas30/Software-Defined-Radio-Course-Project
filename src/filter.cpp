@@ -17,7 +17,7 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 	h.clear(); h.resize(num_taps, 0.0);
 
 	float normCutoff = (Fc*2)/Fs;
-	float inverse_taps = 1/num_taps;
+	float inverse_taps = 1/(float)num_taps;
 
 	for (int i = 0; i < num_taps; i++) {
 		if (i == (num_taps-1) * 0.5) {
@@ -30,7 +30,7 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 			h[i] = normCutoff * (numerator / denominator);
 		}
 
-		h[i] = h[i] * pow(sin(i * PI * inverse_taps), 2);
+		h[i] = h[i] * std::pow(sin(i * PI * inverse_taps), 2);
 	}
 }
 
@@ -53,6 +53,7 @@ void LPFilter(std::vector<float> &y,
 			// negative n-k correspond to right end of prev block
 			else{ y[n] += h[k] * state[n-k]; }
 		}
+		y[n] = y[n] * 10;
 	}
 	// state saving
 	std::copy(x.end()-state.size(), x.end(), state.begin());
