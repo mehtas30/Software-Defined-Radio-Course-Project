@@ -24,10 +24,11 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 	std::vector<float> rf_coeff;
 	impulseResponseLPF(rf_fs, rf_fc, rf_taps, rf_coeff);
 	
+	
 
 	// coefficients for IF -> audio LPF, Fc = 16kHz
 	std::vector<float> audio_coeff;
-	impulseResponseLPF(audio_fs, audio_fc, audio_taps, audio_coeff);
+	impulseResponseLPF(240000, audio_fc, audio_taps, audio_coeff);
 	
 
 	// state saving for extracting FM band (Fc = 100kHz)
@@ -60,17 +61,25 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			q_block[j] = iq_block[i+1];
 			j++;
 		};
+	
 		
 		// LPF (Fc = 100kHz) extract FM band
 		LPFilter(i_filt, i_block, rf_coeff, state_i_lpf_100k);
 		LPFilter(q_filt, q_block, rf_coeff, state_q_lpf_100k);
+		
+		
 
 		// from 2.4MS/s -> 240kS/s (decim=10)
 		std::vector<float> i_ds;
 		std::vector<float> q_ds;
 		downSample(i_filt, i_ds, rf_decim);
 		downSample(q_filt, q_ds, rf_decim);
-
+		if (block_count == 0){
+			for (int i = 0; i<30; i++){
+				std::cerr << i_ds[i] << "," << q_ds[i] << "\n";
+			}
+		}
+			
 		// FM demodulation
 		std::vector<float> fm_demod;
 		demodFM(i_ds, q_ds, fm_demod, prevI, prevQ);
@@ -82,6 +91,8 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		// from 240kS/s -> 48kS/s
 		processed_data.clear();
 		downSample(audio_filt, processed_data, audio_decim);
+		
+		
 		
 		if (block_count == 10){
 			std::vector<float> vector_index;
@@ -177,5 +188,5 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-// cat../data/samples_u8.raw | ./project | aplay -c 1 -f S16_LE -r 48000
+// cat ../data/samples_u8.raw | ./project | aplay -c 1 -f S16_LE -r 48000
 // gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png

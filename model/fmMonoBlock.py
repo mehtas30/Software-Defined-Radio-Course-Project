@@ -18,7 +18,7 @@ def lp_impulse_response_coeff(Fc, Fs, N_taps):
 
 	coefficients = np.zeros(N_taps)
 	
-	print(f'{Fc}, {Fs}, {N_taps}')
+	#print(f'{Fc}, {Fs}, {N_taps}')
 
 	for i in range(N_taps):
 		if (i == ((N_taps-1)/2)):
