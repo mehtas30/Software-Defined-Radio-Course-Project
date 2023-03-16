@@ -146,18 +146,18 @@ if __name__ == "__main__":
 		print(f'Processing block {block_count}')
 
 		# filter to extract the FM channel (I samples are even, Q samples are odd)
-		#i_filt, state_i_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
-		# 		iq_data[(block_count)*block_size:(block_count+1)*block_size:2],
-		# 		zi=state_i_lpf_100k)
-		#q_filt, state_q_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
-		# 		iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
-		# 		zi=state_q_lpf_100k)
-		i_filt, state_i_lpf_100k = lp_filter(rf_coeff, \
-				       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2], 
-					   state_i_lpf_100k)
-		q_filt, state_q_lpf_100k = lp_filter(rf_coeff, \
-				       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
-					   state_q_lpf_100k)
+		i_filt, state_i_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
+		 		iq_data[(block_count)*block_size:(block_count+1)*block_size:2],
+		 		zi=state_i_lpf_100k)
+		q_filt, state_q_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
+		 		iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
+		 		zi=state_q_lpf_100k)
+		#i_filt, state_i_lpf_100k = lp_filter(rf_coeff, \
+		#		       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2], 
+		#			   state_i_lpf_100k)
+		#q_filt, state_q_lpf_100k = lp_filter(rf_coeff, \
+		#		       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
+		#			   state_q_lpf_100k)
 
 
 		# downsample the I/Q data from the FM channel
