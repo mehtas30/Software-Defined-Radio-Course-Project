@@ -17,6 +17,8 @@ def lp_impulse_response_coeff(Fc, Fs, N_taps):
 	normCutoff = Fc/(Fs/2)
 
 	coefficients = np.zeros(N_taps)
+	
+	print(f'{Fc}, {Fs}, {N_taps}')
 
 	for i in range(N_taps):
 		if (i == ((N_taps-1)/2)):
@@ -24,8 +26,9 @@ def lp_impulse_response_coeff(Fc, Fs, N_taps):
 
 		else:
 			# sinc = sin(x)/x
-			numerator = math.sin(math.pi * normCutoff * (i - ((N_taps-1) / 2)))
 			denominator = math.pi * normCutoff * (i - ((N_taps-1) / 2))
+			numerator = math.sin(denominator)
+			
 
 			# normalize coefficients
 			coefficients[i] = normCutoff * (numerator/denominator)
@@ -143,23 +146,27 @@ if __name__ == "__main__":
 		print(f'Processing block {block_count}')
 
 		# filter to extract the FM channel (I samples are even, Q samples are odd)
-		i_filt, state_i_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
-		 		iq_data[(block_count)*block_size:(block_count+1)*block_size:2],
-		 		zi=state_i_lpf_100k)
-		q_filt, state_q_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
-		 		iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
-		 		zi=state_q_lpf_100k)
-		#i_filt, state_i_lpf_100k = lp_filter(rf_coeff, 
-		#		       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2], 
-		#			   state_i_lpf_100k)
-		#q_filt, state_q_lpf_100k = lp_filter(rf_coeff,
-		#		       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
-		#			   state_q_lpf_100k)
+		#i_filt, state_i_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
+		# 		iq_data[(block_count)*block_size:(block_count+1)*block_size:2],
+		# 		zi=state_i_lpf_100k)
+		#q_filt, state_q_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
+		# 		iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
+		# 		zi=state_q_lpf_100k)
+		i_filt, state_i_lpf_100k = lp_filter(rf_coeff, \
+				       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2], 
+					   state_i_lpf_100k)
+		q_filt, state_q_lpf_100k = lp_filter(rf_coeff, \
+				       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
+					   state_q_lpf_100k)
 
 
 		# downsample the I/Q data from the FM channel
 		i_ds = i_filt[::rf_decim]
 		q_ds = q_filt[::rf_decim]
+		
+		if block_count == 0:
+			for i in range(30):
+				print(f'{i_ds[i]},{q_ds[i]}')
 
 		# FM demodulator
 		# you will need to implement your own FM demodulation based on:
@@ -181,7 +188,7 @@ if __name__ == "__main__":
 		# to save runtime select the range of blocks to log data
 		# this includes both saving binary files as well plotting PSD
 		# below we assume we want to plot for graphs for blocks 10 and 11
-		#if block_count == 10:
+		#if block_count == 0:
 
 		 	# plot PSD of selected block after FM demodulation
 		 	#ax0.clear()
