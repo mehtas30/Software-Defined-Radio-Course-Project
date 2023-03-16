@@ -43,20 +43,27 @@ void LPFilter(std::vector<float> &y,
 {
 	// allocate memory for the output (filtered) data
 	y.clear(); y.resize(x.size(), 0.0);
+		
+	// concatenate state, x
+	std::vector<float> x1 = state;
+	x1.insert(x1.end(), x.begin(), x.end());
 
 	// discrete convolution
-	for (int n = 0; n < (int)(x.size()); n++){
-		for (int k = 0; k < (int)(h.size()); k++){
-			if (n-k >= 0 && n-k < x.size()){
-				y[n] += h[k] * x[n-k];
-			}
-			// negative n-k correspond to right end of prev block
-			else{ y[n] += h[k] * state[n-k]; }
+	for (unsigned int n = 0; n < x.size(); n++){
+		for (unsigned int k = 0; k < h.size(); k++){
+
+			y[n] += h[k] * x[n-k+h.size()-1];
 		}
-		//y[n] = y[n] * 10;
 	}
+	
 	// state saving
-	std::copy(x.end()-state.size(), x.end(), state.begin());
+	state.clear();
+	state.resize(h.size() - 1);
+	int indexState = 0;
+	for (int c = x.size() - h.size() + 1; c < x.size(); c++){
+		state[indexState] = x[c];
+		indexState++;
+	}
 }
 
 void demodFM(const std::vector<float> &i_ds, const std::vector<float> &q_ds, std::vector<float> &demod, float p_i, float p_q) {

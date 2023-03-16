@@ -61,24 +61,28 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			q_block[j] = iq_block[i+1];
 			j++;
 		};
-	
+		
+		if (block_count == 0){
+			for (int i = 0; i < 30; i++){
+				std::cerr << i_block[i] << "," << q_block[i] << "\n";
+			}
+		}
 		
 		// LPF (Fc = 100kHz) extract FM band
 		LPFilter(i_filt, i_block, rf_coeff, state_i_lpf_100k);
 		LPFilter(q_filt, q_block, rf_coeff, state_q_lpf_100k);
 		
-		
-
 		// from 2.4MS/s -> 240kS/s (decim=10)
 		std::vector<float> i_ds;
 		std::vector<float> q_ds;
 		downSample(i_filt, i_ds, rf_decim);
 		downSample(q_filt, q_ds, rf_decim);
-		if (block_count == 0){
-			for (int i = 0; i<30; i++){
-				std::cerr << i_ds[i] << "," << q_ds[i] << "\n";
-			}
-		}
+		
+		//if (block_count == 0){
+			//for (int i = 0; i < 30; i++){
+				//std::cerr << i_filt[i] << "," << q_filt[i] << "\n";
+			//}
+		//}
 			
 		// FM demodulation
 		std::vector<float> fm_demod;
@@ -95,30 +99,31 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		
 		
 		if (block_count == 10){
-			std::vector<float> vector_index;
-			genIndexVector(vector_index, fm_demod.size());
+			//std::vector<float> vector_index;
+			//genIndexVector(vector_index, fm_demod.size());
 			//logVector("demod_time", vector_index, fm_demod);
 			//logVector("i_block_time", vector_index, i_block);
 			//logVector("q_block_time", vector_index, q_block);
 			//logVector("iq_block_time", vector_index, iq_block);
-			logVector("i_filt_time", vector_index, i_filt);
-			logVector("q_filt_time", vector_index, q_filt);
-			logVector("audio_filt_time", vector_index, audio_filt);
+			//logVector("i_filt_time", vector_index, i_filt);
+			//logVector("q_filt_time", vector_index, q_filt);
+			//logVector("audio_filt_time", vector_index, audio_filt);
 			
-			std::vector<std::complex<float>> Xf;
-			DFT(fm_demod, Xf);
+			//std::vector<std::complex<float>> Xf;
+			//DFT(fm_demod, Xf);
 			
-			std::vector<float> Xmag;
-			computeVectorMagnitude(Xf, Xmag);
+			//std::vector<float> Xmag;
+			//computeVectorMagnitude(Xf, Xmag);
 			
-			vector_index.clear();
-			genIndexVector(vector_index, Xmag.size());
-			logVector("demod_freq", vector_index, Xmag);
+			//vector_index.clear();
+			//genIndexVector(vector_index, Xmag.size());
+			//logVector("demod_freq", vector_index, Xmag);
 			
-			std::vector<float> freq, psd_est;
-			estimatePSD(freq, psd_est, fm_demod, block_size, 240);
-			logVector("demod_psd", freq, psd_est);
+			//std::vector<float> freq, psd_est;
+			//estimatePSD(freq, psd_est, fm_demod, block_size, 240);
+			//logVector("demod_psd", freq, psd_est);
 		}
+		
 		
 		// writing by block to stdout
 		std::vector<short int> audio_data(block_size / rf_decim / audio_decim);
