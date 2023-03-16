@@ -47,7 +47,7 @@ void LPFilter(std::vector<float> &y,
 	// discrete convolution
 	for (int n = 0; n < (int)(x.size()); n++){
 		for (int k = 0; k < (int)(h.size()); k++){
-			if (n-k >= 0){
+			if (n-k >= 0 && n-k < x.size()){
 				y[n] += h[k] * x[n-k];
 			}
 			// negative n-k correspond to right end of prev block
