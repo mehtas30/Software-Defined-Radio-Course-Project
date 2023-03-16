@@ -18,7 +18,7 @@ def lp_impulse_response_coeff(Fc, Fs, N_taps):
 
 	coefficients = np.zeros(N_taps)
 	
-	print(f'{Fc}, {Fs}, {N_taps}')
+	#print(f'{Fc}, {Fs}, {N_taps}')
 
 	for i in range(N_taps):
 		if (i == ((N_taps-1)/2)):
@@ -47,7 +47,7 @@ def lp_filter(coefficients, data, state):
 	# discrete convolution
 	for n in range(data_len):
 		for k in range(len(coefficients)):
-			if n-k >= 0 and n-k < data_len:
+			if n-k >= 0:
 				filtered_data[n] += coefficients[k] * data[n-k]
 			else:
 				# negative n-k correspond to right end of previous block
