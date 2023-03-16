@@ -49,10 +49,10 @@ void LPFilter(std::vector<float> &y,
 	x1.insert(x1.end(), x.begin(), x.end());
 
 	// discrete convolution
-	for (unsigned int n = 0; n < x.size(); n++){
+	for (unsigned int n = 0; n < x1.size(); n++){
 		for (unsigned int k = 0; k < h.size(); k++){
 
-			y[n] += h[k] * x[n-k+h.size()-1];
+			y[n] += h[k] * x1[n-k+h.size()-1];
 		}
 	}
 	
@@ -60,8 +60,8 @@ void LPFilter(std::vector<float> &y,
 	state.clear();
 	state.resize(h.size() - 1);
 	int indexState = 0;
-	for (int c = x.size() - h.size() + 1; c < x.size(); c++){
-		state[indexState] = x[c];
+	for (int c = x1.size() - h.size() + 1; c < x1.size(); c++){
+		state[indexState] = x1[c];
 		indexState++;
 	}
 }
