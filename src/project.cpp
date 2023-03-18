@@ -77,7 +77,6 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		
 		//if (block_count == 0){
 			//std::cerr << "\n";
-<<<<<<< HEAD
 			//for (int i = 0; i < 30; i++){
 				//std::cerr << "i=" << i_block[i] << ", q=" << q_block[i] << "\n";
 			//}
@@ -90,20 +89,6 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 				//std::cerr << "i_ds=" << i_ds[i] << ", q_ds=" << q_ds[i] << "\n";
 			//}
 			//std::cerr << "\n" << std::endl;
-=======
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "i=" << i_block[i] << ", q=" << q_block[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "i_filt=" << i_filt[i] << ", q_filt=" << q_filt[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "i_ds=" << i_ds[i] << ", q_ds=" << q_ds[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
->>>>>>> ec6f1451f58919f6e94f6f23ce092b465fc08347
 		//}
 			
 		// FM demodulation
