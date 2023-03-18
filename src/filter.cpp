@@ -74,13 +74,13 @@ void LPFilter(std::vector<float> &output,
 	}
 }
 
-void demodFM(const std::vector<float> &i_ds, const std::vector<float> &q_ds, std::vector<float> &demod, float p_i, float p_q) {
+void demodFM(const std::vector<float> i_ds, const std::vector<float> q_ds, std::vector<float> &demod, float &prevI, float &prevQ) {
 	for (unsigned int i=0; i < i_ds.size(); i++) {
 		float currI = i_ds[i];
 		float currQ = q_ds[i];
 
-		float derivI = currI - p_i;
-		float derivQ = currQ - p_q;
+		float derivI = currI - prevI;
+		float derivQ = currQ - prevQ;
 
 		if ((pow(currI,2) + pow(currQ,2)) == 0) {
 			demod.push_back(0);
@@ -91,8 +91,8 @@ void demodFM(const std::vector<float> &i_ds, const std::vector<float> &q_ds, std
 			demod.push_back(numerator/denominator);
 		}
 
-		p_i = currI;
-		p_q = currQ;
+		prevI = currI;
+		prevQ = currQ;
 	}
 }
 
