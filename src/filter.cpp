@@ -43,11 +43,11 @@ void LPFilter(std::vector<float> &y,
 {
 	// allocate memory for the output (filtered) data
 	y.clear(); y.resize(x.size(), 0.0);
-		
 	// concatenate state, x
-	std::vector<float> x1 = state;
+	std::vector<float> x1;
+	x1.insert(x1.end(), state.begin(), state.end());
 	x1.insert(x1.end(), x.begin(), x.end());
-
+	
 	// discrete convolution
 	for (unsigned int n = 0; n < x1.size(); n++){
 		for (unsigned int k = 0; k < h.size(); k++){
@@ -55,7 +55,7 @@ void LPFilter(std::vector<float> &y,
 			y[n] += h[k] * x1[n-k+h.size()-1];
 		}
 	}
-	
+
 	// state saving
 	state.clear();
 	state.resize(h.size() - 1);

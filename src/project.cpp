@@ -22,12 +22,12 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 
 	// coefficients for IQ -> IF LPFs, Fc = 100kHz
 	std::vector<float> rf_coeff;
+	rf_coeff.clear();
 	impulseResponseLPF(rf_fs, rf_fc, rf_taps, rf_coeff);
 	
-	
-
 	// coefficients for IF -> audio LPF, Fc = 16kHz
 	std::vector<float> audio_coeff;
+	audio_coeff.clear();
 	impulseResponseLPF(240000, audio_fc, audio_taps, audio_coeff);
 	
 
@@ -38,7 +38,8 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 	float prevI = 0;
 	float prevQ = 0;
 	// state saving for extracting mono audio (Fc = 16kHz)
-	std::vector<float> audio_state(audio_taps-1, 0.0);
+	std::vector<float> audio_state;
+	audio_state.clear(); audio_state.resize(audio_taps-1, 0.0);
 
 	std::vector<float> i_filt;
 	std::vector<float> q_filt;
@@ -62,15 +63,11 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			j++;
 		};
 		
-		if (block_count == 0){
-			for (int i = 0; i < 30; i++){
-				std::cerr << "i=" << i_block[i] << "," << "q=" << q_block[i] << "\n";
-			}
-		}
 		
 		// LPF (Fc = 100kHz) extract FM band
 		LPFilter(i_filt, i_block, rf_coeff, state_i_lpf_100k);
 		LPFilter(q_filt, q_block, rf_coeff, state_q_lpf_100k);
+		
 		
 		// from 2.4MS/s -> 240kS/s (decim=10)
 		std::vector<float> i_ds;
@@ -79,9 +76,19 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		downSample(q_filt, q_ds, rf_decim);
 		
 		//if (block_count == 0){
+			//std::cerr << "\n";
 			//for (int i = 0; i < 30; i++){
-				//std::cerr << i_filt[i] << "," << q_filt[i] << "\n";
+				//std::cerr << "i=" << i_block[i] << ", q=" << q_block[i] << "\n";
 			//}
+			//std::cerr << "\n" << std::endl;
+			//for (int i = 0; i < 30; i++){
+				//std::cerr << "i_filt=" << i_filt[i] << ", q_filt=" << q_filt[i] << "\n";
+			//}
+			//std::cerr << "\n" << std::endl;
+			//for (int i = 0; i < 30; i++){
+				//std::cerr << "i_ds=" << i_ds[i] << ", q_ds=" << q_ds[i] << "\n";
+			//}
+			//std::cerr << "\n" << std::endl;
 		//}
 			
 		// FM demodulation
