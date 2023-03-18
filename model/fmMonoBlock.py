@@ -120,9 +120,11 @@ if __name__ == "__main__":
 
 	# coefficients for IQ -> IF LPFs, Fc = 100kHz
 	rf_coeff = lp_impulse_response_coeff(rf_Fc, rf_Fs, rf_taps)
+	print(f'\nrf_coeff=\n{rf_coeff}')
 
 	# coefficients for IF -> audio LPF, Fc = 16kHz
 	audio_coeff = lp_impulse_response_coeff(audio_Fc, 240e3, audio_taps)
+	print(f'\naudio_coeff=\n{audio_coeff}')
 
 	# state-saving for extracting FM band (Fc = 100kHz)
 	state_i_lpf_100k = np.zeros(rf_taps-1)
@@ -158,15 +160,20 @@ if __name__ == "__main__":
 				       # iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
 					   # state_q_lpf_100k)
 
-		if block_count == 0:
-			for i in range(0, 30, 2):
-				print(f'{iq_data[i]},{iq_data[i+1]}')
-
 		# downsample the I/Q data from the FM channel
 		i_ds = i_filt[::rf_decim]
 		q_ds = q_filt[::rf_decim]
 		
-		
+		if block_count == 0:
+			print('\n')
+			for i in range(0, 60, 2):
+				print(f'i={round(iq_data[i], 5)}, q={round(iq_data[i+1], 5)}')
+			print('\n')
+			for i in range(30):
+				print(f'i_filt={round(i_filt[i], 5)}, q_filt={round(q_filt[i], 5)}')
+			print('\n')
+			for i in range(30):
+				print(f'i_ds={round(i_ds[i], 5)}, q_ds={round(q_ds[i], 5)}')
 
 		# FM demodulator
 		# you will need to implement your own FM demodulation based on:

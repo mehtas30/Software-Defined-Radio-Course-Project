@@ -64,7 +64,7 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		
 		if (block_count == 0){
 			for (int i = 0; i < 30; i++){
-				std::cerr << i_block[i] << "," << q_block[i] << "\n";
+				std::cerr << "i=" << i_block[i] << "," << "q=" << q_block[i] << "\n";
 			}
 		}
 		

@@ -60,7 +60,7 @@ void LPFilter(std::vector<float> &y,
 	state.clear();
 	state.resize(h.size() - 1);
 	int indexState = 0;
-	for (int c = x.size() - h.size() + 1; c < x.size(); c++){
+	for (unsigned int c = x.size() - h.size() + 1; c < x.size(); c++){
 		state[indexState] = x[c];
 		indexState++;
 	}
