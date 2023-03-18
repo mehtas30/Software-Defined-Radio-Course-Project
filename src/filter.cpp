@@ -63,7 +63,7 @@ void LPFilter(std::vector<float> &output,
 			//if (block_count == 0 && n == 0) {std::cerr << output[n] << " = " << prevOut << " + " << coeff[k] << " * " << signal[n-k + nTaps-1] << std::endl;}
 		}
 	}
-	
+
 	// state saving
 	state.clear();
 	state.resize(nTaps - 1);
