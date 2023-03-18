@@ -36,32 +36,40 @@ void impulseResponseLPF(float Fs, float Fc, unsigned short int num_taps, std::ve
 
 // function to compute the filtered output "y" by doing the convolution
 // of the input data "x" with the impulse response "h" in blocks
-void LPFilter(std::vector<float> &y, 
-			const std::vector<float> &x, 
-			const std::vector<float> &h, 
-			std::vector<float> &state)
+void LPFilter(std::vector<float> &output, 
+			const std::vector<float> &input, 
+			const std::vector<float> &coeff, 
+			std::vector<float> &state,
+			int block_count)
 {
+	int nTaps = (int)coeff.size();
+	int blockSize = (int)input.size();
+	
 	// allocate memory for the output (filtered) data
-	y.clear(); y.resize(x.size(), 0.0);
+	output.clear(); output.resize(blockSize, 0.0);
 		
-	// concatenate state, x
-	std::vector<float> x1 = state;
-	x1.insert(x1.end(), x.begin(), x.end());
+	// concatenate state, input
+	std::vector<float> signal;
+	signal.insert(signal.end(), state.begin(), state.end());
+	signal.insert(signal.end(), input.begin(), input.end());
 
 	// discrete convolution
-	for (unsigned int n = 0; n < x.size(); n++){
-		for (unsigned int k = 0; k < h.size(); k++){
-
-			y[n] += h[k] * x[n-k+h.size()-1];
+	for (int n = 0; n < blockSize; n++){
+		for (int k = 0; k < nTaps; k++){
+			//float prevOut = output[n];
+			output[n] += coeff[k] * signal[n-k + nTaps-1];
+			
+			// print each sumproduct in calculating output
+			//if (block_count == 0 && n == 0) {std::cerr << output[n] << " = " << prevOut << " + " << coeff[k] << " * " << signal[n-k + nTaps-1] << std::endl;}
 		}
 	}
 	
 	// state saving
 	state.clear();
-	state.resize(h.size() - 1);
+	state.resize(nTaps - 1);
 	int indexState = 0;
-	for (unsigned int c = x.size() - h.size() + 1; c < x.size(); c++){
-		state[indexState] = x[c];
+	for (int c = blockSize - nTaps+1; c < blockSize; c++){
+		state[indexState] = input[c];
 		indexState++;
 	}
 }

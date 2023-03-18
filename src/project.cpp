@@ -62,15 +62,10 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			j++;
 		};
 		
-		if (block_count == 0){
-			for (int i = 0; i < 30; i++){
-				std::cerr << "i=" << i_block[i] << "," << "q=" << q_block[i] << "\n";
-			}
-		}
 		
 		// LPF (Fc = 100kHz) extract FM band
-		LPFilter(i_filt, i_block, rf_coeff, state_i_lpf_100k);
-		LPFilter(q_filt, q_block, rf_coeff, state_q_lpf_100k);
+		LPFilter(i_filt, i_block, rf_coeff, state_i_lpf_100k, block_count);
+		LPFilter(q_filt, q_block, rf_coeff, state_q_lpf_100k, block_count);
 		
 		// from 2.4MS/s -> 240kS/s (decim=10)
 		std::vector<float> i_ds;
@@ -79,9 +74,19 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		downSample(q_filt, q_ds, rf_decim);
 		
 		//if (block_count == 0){
+			//std::cerr << "\n";
 			//for (int i = 0; i < 30; i++){
-				//std::cerr << i_filt[i] << "," << q_filt[i] << "\n";
+				//std::cerr << "i=" << i_block[i] << ", q=" << q_block[i] << "\n";
 			//}
+			//std::cerr << "\n" << std::endl;
+			//for (int i = 0; i < 30; i++){
+				//std::cerr << "i_filt=" << i_filt[i] << ", q_filt=" << q_filt[i] << "\n";
+			//}
+			//std::cerr << "\n" << std::endl;
+			//for (int i = 0; i < 30; i++){
+				//std::cerr << "i_ds=" << i_ds[i] << ", q_ds=" << q_ds[i] << "\n";
+			//}
+			//std::cerr << "\n" << std::endl;
 		//}
 			
 		// FM demodulation
@@ -90,13 +95,27 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 
 		// LPF (Fc = 16kHz)
 		std::vector<float> audio_filt;
-		LPFilter(audio_filt, fm_demod, audio_coeff, audio_state);
+		LPFilter(audio_filt, fm_demod, audio_coeff, audio_state, block_count);
 
 		// from 240kS/s -> 48kS/s
 		processed_data.clear();
 		downSample(audio_filt, processed_data, audio_decim);
 		
-		
+		if (block_count == 0){
+			std::cerr << "\n";
+			for (int i = 0; i < 30; i++){
+				std::cerr << "fm_demod=" << fm_demod[i] << "\n";
+			}
+			std::cerr << "\n" << std::endl;
+			for (int i = 0; i < 30; i++){
+				std::cerr << "audio_filt=" << audio_filt[i] << "\n";
+			}
+			std::cerr << "\n" << std::endl;
+			for (int i = 0; i < 30; i++){
+				std::cerr << "processed_data=" << processed_data[i] << "\n";
+			}
+			std::cerr << "\n" << std::endl;
+		}
 		
 		if (block_count == 10){
 			//std::vector<float> vector_index;
