@@ -167,10 +167,12 @@ if __name__ == "__main__":
 	prevI = 0
 	prevQ = 0
 	# state-saving for extracting mono audio (Fc = 16kHz)
-	audio_state = np.zeros(audio_taps-1)
+	channelExtractState = np.zeros(audio_taps-1)
+	carrierRecoveryState = np.zeros(audio_taps-1)
 
 	# audio buffer that stores all the audio blocks
-	audio_data = np.array([]) # used to concatenate filtered blocks (audio data)
+	carrierRecoveryData = np.array([]) # used to concatenate filtered blocks (audio data)
+	channelExtractData = np.array([])
 
 	# if the number of samples in the last block is less than the block size
 	# it is fine to ignore the last few samples from the raw IQ file
@@ -205,8 +207,25 @@ if __name__ == "__main__":
 		# see more comments on fmSupportLib.py - take particular notice that
 		# you MUST have also "custom" state-saving for your own FM demodulator
 		fm_demod, prevI, prevQ = myDemod(i_ds, q_ds, prevI, prevQ)
-		bpCoeff = bandpassFilt(18.5e3, 19.5e3, 240e3, audio_taps)
-		audio_filt, audio_state = filter(bpCoeff, fm_demod, audio_state)
-		audio_block = fmPll(audio_filt,19e3,240e3,2,0,0.01)
-		audio_data = np.concatenate((audio_data, audio_block))
 
+		"""
+		Stereo Carrier Recovery
+		"""
+		carrierRecoveryCoeff = bandpassFilt(18.5e3, 19.5e3, 240e3, audio_taps)
+
+		carrierRecoveryFiltered, carrierRecoveryState = filter(carrierRecoveryCoeff, fm_demod, carrierRecoveryState)
+
+		carrierRecoveryBlock = fmPll(carrierRecoveryFiltered,19e3,240e3,2,0,0.01)
+
+		carrierRecoveryData = np.concatenate(carrierRecoveryData, carrierRecoveryBlock)
+
+		"""
+		Stereo Channel Extraction
+		"""
+		channelExtractCoeff = bandpassFilt(22e3, 54e3, 240e3, audio_taps)
+
+		channelExtractFiltered, channelExtractState = filter(channelExtractCoeff, fm_demod, channelExtractState)
+
+		channelExtractData = np.concatenate(channelExtractData, channelExtractFiltered)
+
+		block_count += 1
