@@ -56,12 +56,6 @@ def lp_filter(coefficients, data, state):
 	
 	return filtered_data, filter_state
 
-def bp_impulse_response_coeff():
-	pass
-
-def bp_filter(coefficients, data):
-	pass
-
 def myDemod(i_ds, q_ds, p_i=0, p_q=0):
 	prevI, prevQ = p_i, p_q
 	demod = np.array([])
@@ -160,6 +154,9 @@ if __name__ == "__main__":
 		audio_Fs = 44.1e3
 		audio_decim = 2560
 		audio_interp = 441
+
+		audio_taps *= audio_interp
+		if_Fs *= audio_interp
 	else:
 		print(f'Invalid operating mode!')
 		sys.exit()

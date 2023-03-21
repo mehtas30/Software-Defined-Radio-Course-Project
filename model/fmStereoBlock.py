@@ -6,24 +6,27 @@ import math
 
 from fmSupportLib import fmDemodArctan, fmPlotPSD
 
-def bandpassFilt(fb, fe, fs, nTaps):
-    normCent = ((fe+fb)/2)/(fs/2)
-    normPass = (fe - fb)/(fs/2)
+def bp_impulse_response_coeff(fb, fe, fs, n_taps):
+    normCent = (fe + fb) / fs
+    normPass = 2 * (fe - fb) / fs
 
-    h = np.zeros(nTaps-1)
+    coefficients = np.zeros(n_taps-1)
 
-    for i in range (nTaps-1):
-        if (i == (nTaps-1)/2):
-            h[i] = normPass
+    for i in range (n_taps-1):
+        if (i == (n_taps-1) * 0.5):
+            coefficients[i] = normPass
         else:
-            numerator = math.sin(math.pi * (normPass/2) * (i - (nTaps-1)/2))
-            denominator = math.pi * (normPass/2) * (i - (nTaps-1)/2)
-            h[i] = normPass * (numerator/denominator)
+	    denominator = math.pi * (normPass * 0.5) * (i - ((n_taps-1) * 0.5))
+            numerator = math.sin(denominator)
+            
+            coefficients[i] = normPass * (numerator / denominator)
 
-        h[i] = h[i] * math.cos(i * math.pi * normCent)
-        h[i] = h[i] * math.sin((i * math.pi)/nTaps)**2
+        coefficients[i] *= math.cos(i * math.pi * normCent)
+        coefficients[i] *= math.sin((i * math.pi) / n_taps)**2
 
 def fmPll(pllIn, freq, Fs, nocoScale = 1.0, phaseAdjust = 0.0, normBandwidth = 0.01):
+	
+
     Cp = 2.666
     Ci = 3.555
 
@@ -61,16 +64,15 @@ def filter(coefficients, data, state):
 
 	state_len = len(state)
 	data_len = len(data)
+	coeff_len = len(coefficients)
 	filtered_data = np.zeros(data_len)
+	
+	data = np.concatenate([state,data])
 
 	# discrete convolution
 	for n in range(data_len):
 		for k in range(len(coefficients)):
-			if n-k >= 0:
-				filtered_data[n] += coefficients[k] * data[n-k]
-			else:
-				# negative n-k correspond to right end of previous block
-				filtered_data[n] += coefficients[k] * state[n-k]
+			filtered_data[n] += coefficients[coeff_len - k -1] * data[n+k]
 
 	# current unfiltered block is next block's filter state
 	filter_state = data[-state_len:]
@@ -109,12 +111,13 @@ def myDemod(i_ds, q_ds, p_i=0, p_q=0):
 
 		derivI = currentI - prevI
 		derivQ = currentQ - prevQ
+		
+		denominator = currentI**2 + currentQ**2
 
-		if (currentI**2 + currentQ**2 == 0):
+		if (denominator == 0):
 			demod = np.append(demod, 0)
 		else:
 			numerator = currentI*derivQ - currentQ*derivI
-			denominator = currentI**2 + currentQ**2
 			demod = np.append(demod, numerator/denominator)
 
 		prevI = currentI

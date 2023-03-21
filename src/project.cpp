@@ -49,7 +49,7 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			std::cerr << "End of input stream reached!" << std::endl;
 			exit(1);
 		}
-		//std::cerr << "Read block " << block_count << std::endl;
+		std::cerr << "Read block " << block_count << std::endl;
 
 		// separate iq_block into I and Q
 		std::vector<float> i_block(block_size);
@@ -61,11 +61,9 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			j++;
 		};
 		
-		
 		// LPF (Fc = 100kHz) extract FM band
 		LPFilter(i_filt, state_i_lpf_100k, i_block, rf_coeff);
-		LPFilter(q_filt, state_q_lpf_100k, q_block, rf_coeff);
-		
+		LPFilter(q_filt, state_q_lpf_100k, q_block, rf_coeff);		
 		
 		// from 2.4MS/s -> 240kS/s (decim=10)
 		std::vector<float> i_ds;
@@ -99,10 +97,12 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 
 		// LPF (Fc = 16kHz)
 		std::vector<float> audio_filt;
-		LPFilter(audio_filt, audio_state, fm_demod, audio_coeff);
+		LPFilter(audio_filt, audio_state, fm_demod_us, audio_coeff);
+		std::cerr << "post us filter done" << std::endl;
 
 		// from 240kS/s -> 48kS/s
 		downsample(processed_data, audio_filt, audio_decim);
+		std::cerr << "post us ds done" << std::endl;
 		
 		//if (block_count == 0){
 			//std::cerr << "\n";
@@ -229,7 +229,8 @@ int main(int argc, char* argv[])
 		if_fs = 256000;
 		audio_fs = 44100; audio_decim = 2560; audio_interp = 441;
 		audio_taps *= audio_interp;
-		if_fs *= audio_interp; }
+		if_fs *= audio_interp;
+	}
 
 	fmMonoProcessing(rf_fs, rf_fc, rf_taps, rf_decim, if_fs, 
 					audio_fs, audio_fc, audio_taps, audio_decim, audio_interp, 
