@@ -19,6 +19,7 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 						std::vector<float> &processed_data,
 						int block_size, int block_count) 
 {
+	std::cerr << "rf_fs=" << rf_fs << "\nrf_fc=" << rf_fc << "\nrf_taps=" << rf_taps << "\nrf_decim=" << rf_decim << "\nif_fs=" << if_fs << "\naudio_fs=" << audio_fs << "\naudio_fc=" << audio_fc << "\naudio_taps=" << audio_taps << "\naudio_decim=" << audio_decim << "\naudio_interp=" << audio_interp << "\nblock_size=" << block_size << "\nblock_count=" << block_count << std::endl;
 
 	// coefficients for IQ -> IF LPFs, Fc = 100kHz
 	std::vector<float> rf_coeff;
@@ -63,7 +64,8 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		
 		// LPF (Fc = 100kHz) extract FM band
 		LPFilter(i_filt, state_i_lpf_100k, i_block, rf_coeff);
-		LPFilter(q_filt, state_q_lpf_100k, q_block, rf_coeff);		
+		LPFilter(q_filt, state_q_lpf_100k, q_block, rf_coeff);	
+		
 		
 		// from 2.4MS/s -> 240kS/s (decim=10)
 		std::vector<float> i_ds;
@@ -98,11 +100,10 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		// LPF (Fc = 16kHz)
 		std::vector<float> audio_filt;
 		LPFilter(audio_filt, audio_state, fm_demod_us, audio_coeff);
-		std::cerr << "post us filter done" << std::endl;
 
 		// from 240kS/s -> 48kS/s
 		downsample(processed_data, audio_filt, audio_decim);
-		std::cerr << "post us ds done" << std::endl;
+
 		
 		//if (block_count == 0){
 			//std::cerr << "\n";
@@ -191,20 +192,20 @@ int main(int argc, char* argv[])
 
 	int rf_fs = 2400000;
 	int rf_fc = 100000;
-	int rf_taps = 151;
+	int rf_taps = 30;
 	int rf_decim = 10;
 	
 	int if_fs = 240000;
 
 	int audio_fs = 48000;
 	int audio_fc = 16000;
-	int audio_taps = 101;
+	int audio_taps = 30;
 	int audio_decim = 5;
 	int audio_interp = 1;
 	
 	std::vector<float> processed_data;
 
-	int block_size = 1024 * rf_decim * 5 * 2;
+	int block_size = 128 * rf_decim * 5 * 2;
 	int block_count = 0;
 
 	if (mode == 0){

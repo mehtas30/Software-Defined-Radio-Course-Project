@@ -45,6 +45,7 @@ void LPFilter(std::vector<float> &output,
 {
 	int taps = (int)coeff.size();
 	int block_size = (int)input.size();
+	std::cerr << "taps=" << taps << ", block size=" << block_size << std::endl;
 	
 	// allocate memory for the output (filtered) data
 	output.clear(); output.resize(block_size, 0.0);
@@ -100,9 +101,12 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 
 void downsample(std::vector<float> &downsampled, const std::vector<float> &data, const int down_factor) {
 
-	downsampled.clear();
+	downsampled.clear(); downsampled.reserve(int(data.size() / down_factor) + 1);
+	
 	for (int i = 0; i < (int)data.size(); i += down_factor) {
+		
 		downsampled.push_back(data[i]);
+	
 	}
 }
 
