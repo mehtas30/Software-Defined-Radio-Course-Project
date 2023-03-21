@@ -150,6 +150,9 @@ if __name__ == "__main__":
 		audio_Fs = 44.1e3
 		audio_decim = 800
 		audio_interp = 147
+		
+		audio_taps *= audio_interp
+		if_Fs *= audio_interp
 	elif mode == 3:
 		rf_Fs = 2.304e6
 		rf_decim = 9
@@ -198,6 +201,7 @@ if __name__ == "__main__":
 
 	# coefficients for IF -> audio LPF, Fc = 16kHz
 	audio_coeff = lp_impulse_response_coeff(audio_Fc, if_Fs, audio_taps)
+	audio_coeff *= audio_interp
 
 	# state-saving for extracting FM band (Fc = 100kHz)
 	state_i_lpf_100k = np.zeros(rf_taps-1)
