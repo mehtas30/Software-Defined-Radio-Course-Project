@@ -14,9 +14,14 @@ Ontario, Canada
 #include <vector>
 
 // declaration of a function prototypes
-void impulseResponseLPF(float, float, unsigned short int, std::vector<float> &);
-void LPFilter(std::vector<float> &, const std::vector<float> &, const std::vector<float> &, std::vector<float> &);
-void demodFM(const std::vector<float> &i_ds, const std::vector<float> &q_ds, std::vector<float> &demod, float p_i=0, float p_q=0);
-void downSample(const std::vector<float> &original, std::vector<float> &downsampled, int decim);
+void impulseResponseLPF(const float, const float, const int, std::vector<float> &);
+
+void LPFilter(std::vector<float> &, std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
+
+void FMDemod(std::vector<float> &, float &, float &, const std::vector<float> &, const std::vector<float> &);
+
+void downsample(std::vector<float> &, const std::vector<float> &, int);
+
+void resample(std::vector<float> &, const std::vector<float> &, const int, const int);
 
 #endif // DY4_FILTER_H

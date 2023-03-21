@@ -164,16 +164,16 @@ if __name__ == "__main__":
 		i_ds = i_filt[::rf_decim]
 		q_ds = q_filt[::rf_decim]
 		
-		if block_count == 0:
-			print('\n')
-			for i in range(0, 60, 2):
-				print(f'i={round(iq_data[i], 5)}, q={round(iq_data[i+1], 5)}')
-			print('\n')
-			for i in range(30):
-				print(f'i_filt={round(i_filt[i], 5)}, q_filt={round(q_filt[i], 5)}')
-			print('\n')
-			for i in range(30):
-				print(f'i_ds={round(i_ds[i], 5)}, q_ds={round(q_ds[i], 5)}')
+		# if block_count == 0:
+			# print('\n')
+			# for i in range(0, 60, 2):
+				# print(f'i={round(iq_data[i], 5)}, q={round(iq_data[i+1], 5)}')
+			# print('\n')
+			# for i in range(30):
+				# print(f'i_filt={round(i_filt[i], 5)}, q_filt={round(q_filt[i], 5)}')
+			# print('\n')
+			# for i in range(30):
+				# print(f'i_ds={round(i_ds[i], 5)}, q_ds={round(q_ds[i], 5)}')
 
 		# FM demodulator
 		# you will need to implement your own FM demodulation based on:
@@ -187,6 +187,17 @@ if __name__ == "__main__":
 
 		# downsample audio data
 		audio_block = audio_filt[::audio_decim]
+		
+		if block_count == 0:
+			print('\n')
+			for i in range(30):
+				print(f'fm_demod = {round(fm_demod[i], 5)}')
+			print('\n')
+			for i in range(30):
+				print(f'audio_filt = {round(audio_filt[i], 5)}')
+			print('\n')
+			for i in range(30):
+				print(f'audio_block = {round(audio_block[i], 5)}')
 
 		# concatenate the most recently processed audio_block
 		# to the previous blocks stored already in audio_data
