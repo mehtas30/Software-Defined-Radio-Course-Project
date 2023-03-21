@@ -10,6 +10,7 @@ from scipy.io import wavfile
 from scipy import signal
 import numpy as np
 import math
+import sys
 
 from fmSupportLib import fmDemodArctan, fmPlotPSD
 
@@ -17,8 +18,6 @@ def lp_impulse_response_coeff(Fc, Fs, N_taps):
 	normCutoff = Fc/(Fs/2)
 
 	coefficients = np.zeros(N_taps)
-	
-	#print(f'{Fc}, {Fs}, {N_taps}')
 
 	for i in range(N_taps):
 		if (i == ((N_taps-1)/2)):
@@ -73,30 +72,94 @@ def myDemod(i_ds, q_ds, p_i=0, p_q=0):
 
 		derivI = currentI - prevI
 		derivQ = currentQ - prevQ
+		
+		denominator = currentI**2 + currentQ**2
 
-		if (currentI**2 + currentQ**2 == 0):
+		if (denominator == 0):
 			demod = np.append(demod, 0)
 		else:
 			numerator = currentI*derivQ - currentQ*derivI
-			denominator = currentI**2 + currentQ**2
 			demod = np.append(demod, numerator/denominator)
 
 		prevI = currentI
 		prevQ = currentQ
 
 	return demod, prevI, prevQ
+	
+def upsample(data, up_factor):
+	if up_factor == 1:
+		return data
+		
+	resampled_data = np.zeros(len(data) * up_factor)
+	for i in range(len(data)):
+		resampled_data[i * up_factor] = data[i]
+	return resampled_data
+	
+def downsample(data, down_factor):
+	return data[::down_factor]
+			
+	
+	
+mode = 2
 
 rf_Fs = 2.4e6
 rf_Fc = 100e3
 rf_taps = 151
 rf_decim = 10
 
+if_Fs = 240e3
+
 audio_Fs = 48e3
 audio_Fc = 16e3
 audio_taps = 101
 audio_decim = 5
+audio_interp = 1
+
+'''
+mode 0:
+2.4MS/s ---10 down---> 240kS/s ---5 down---> 48kS/s
+
+mode 1:
+1.152MS/s ---4 down---> 288kS/s ---4 down---> 48kS/s
+
+mode 2:
+2.4MS/s ---10 down---> 240kS/s ---147 up, 800 down---> 44.1kS/s
+
+mode 3:
+2.304MS/s ---9 down---> 256kS/s ---441 up, 2560 down---> 44.1kS/s
+'''
 
 if __name__ == "__main__":
+	
+	if mode == 0:
+		rf_Fs = 2.4e6
+		rf_decim = 10
+		if_Fs = 240e3
+		audio_Fs = 48e3
+		audio_decim = 5
+	elif mode == 1:
+		rf_Fs = 1.152e6
+		rf_decim = 4
+		if_Fs = 288e3
+		audio_Fs = 48e3
+		audio_decim = 4
+	elif mode == 2:
+		rf_Fs = 2.4e6
+		rf_decim = 10
+		if_Fs = 240e3
+		audio_Fs = 44.1e3
+		audio_decim = 800
+		audio_interp = 147
+	elif mode == 3:
+		rf_Fs = 2.304e6
+		rf_decim = 9
+		if_Fs = 256e3
+		audio_Fs = 44.1e3
+		audio_decim = 2560
+		audio_interp = 441
+	else:
+		print(f'Invalid operating mode!')
+		sys.exit()
 
 	# read the raw IQ data from the recorded file
 	# IQ data is assumed to be in 8-bits unsigned (and interleaved)
@@ -112,19 +175,29 @@ if __name__ == "__main__":
 	# plt.rc('figure', figsize=(7.5, 7.5))	# the size of the entire figure
 	# fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, gridspec_kw={'height_ratios': subfig_height})
 	# fig.subplots_adjust(hspace = .6)
+	
+	print(f'Operating in mode {mode}\n\n\
+			rf_Fs = {rf_Fs}\n\
+			rf_Fc = {rf_Fc}\n\
+			rf_taps = {rf_taps}\n\
+			rf_decim = {rf_decim}\n\n\
+			if_Fs = {if_Fs}\n\n\
+			audio_Fs = {audio_Fs}\n\
+			audio_Fc = {audio_Fc}\n\
+			audio_taps = {audio_taps}\n\
+			audio_decim = {audio_decim}\n\
+			audio_interp = {audio_interp}\n')
 
 	# select a block_size that is a multiple of KB
 	# and a multiple of decimation factors
-	block_size = 1024 * rf_decim * audio_decim * 2
+	block_size = 1024 * rf_decim * 5 * 2
 	block_count = 0
 
 	# coefficients for IQ -> IF LPFs, Fc = 100kHz
 	rf_coeff = lp_impulse_response_coeff(rf_Fc, rf_Fs, rf_taps)
-	print(f'\nrf_coeff=\n{rf_coeff}')
 
 	# coefficients for IF -> audio LPF, Fc = 16kHz
-	audio_coeff = lp_impulse_response_coeff(audio_Fc, 240e3, audio_taps)
-	print(f'\naudio_coeff=\n{audio_coeff}')
+	audio_coeff = lp_impulse_response_coeff(audio_Fc, if_Fs, audio_taps)
 
 	# state-saving for extracting FM band (Fc = 100kHz)
 	state_i_lpf_100k = np.zeros(rf_taps-1)
@@ -153,27 +226,11 @@ if __name__ == "__main__":
 		q_filt, state_q_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
 				iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
 				zi=state_q_lpf_100k)
-		# i_filt, state_i_lpf_100k = lp_filter(rf_coeff, \
-				       # iq_data[(block_count)*block_size:(block_count+1)*block_size:2], 
-					   # state_i_lpf_100k)
-		# q_filt, state_q_lpf_100k = lp_filter(rf_coeff, \
-				       # iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
-					   # state_q_lpf_100k)
 
 		# downsample the I/Q data from the FM channel
-		i_ds = i_filt[::rf_decim]
-		q_ds = q_filt[::rf_decim]
-		
-		# if block_count == 0:
-			# print('\n')
-			# for i in range(0, 60, 2):
-				# print(f'i={round(iq_data[i], 5)}, q={round(iq_data[i+1], 5)}')
-			# print('\n')
-			# for i in range(30):
-				# print(f'i_filt={round(i_filt[i], 5)}, q_filt={round(q_filt[i], 5)}')
-			# print('\n')
-			# for i in range(30):
-				# print(f'i_ds={round(i_ds[i], 5)}, q_ds={round(q_ds[i], 5)}')
+		i_ds = downsample(i_filt, rf_decim)
+		q_ds = downsample(q_filt, rf_decim)
+											
 
 		# FM demodulator
 		# you will need to implement your own FM demodulation based on:
@@ -181,23 +238,15 @@ if __name__ == "__main__":
 		# see more comments on fmSupportLib.py - take particular notice that
 		# you MUST have also "custom" state-saving for your own FM demodulator
 		fm_demod, prevI, prevQ = myDemod(i_ds, q_ds, prevI, prevQ)
+		
+		# extract mono audio data through filtering, and downsample to 48kS/s
+		fm_demod_us = upsample(fm_demod, audio_interp)
 
 		# extract the mono audio data through filtering
-		audio_filt, audio_state = lp_filter(audio_coeff, fm_demod, audio_state)
+		audio_filt, audio_state = signal.lfilter(audio_coeff, 1.0, fm_demod_us, zi=audio_state)
 
 		# downsample audio data
-		audio_block = audio_filt[::audio_decim]
-		
-		if block_count == 0:
-			print('\n')
-			for i in range(30):
-				print(f'fm_demod = {round(fm_demod[i], 5)}')
-			print('\n')
-			for i in range(30):
-				print(f'audio_filt = {round(audio_filt[i], 5)}')
-			print('\n')
-			for i in range(30):
-				print(f'audio_block = {round(audio_block[i], 5)}')
+		audio_block = downsample(audio_filt, audio_decim)
 
 		# concatenate the most recently processed audio_block
 		# to the previous blocks stored already in audio_data
