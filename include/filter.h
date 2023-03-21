@@ -14,7 +14,7 @@ Ontario, Canada
 #include <vector>
 
 // declaration of a function prototypes
-void impulseResponseLPF(std::vector<float> &, const float, const float, const int);
+void impulseResponseLPF(std::vector<float> &, const float, const float, const int, const int);
 
 void LPFilter(std::vector<float> &, std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
 

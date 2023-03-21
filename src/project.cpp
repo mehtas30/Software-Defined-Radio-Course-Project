@@ -14,8 +14,8 @@ Ontario, Canada
 #include "../include/iofunc.h"
 #include "../include/logfunc.h"
 
-void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,	 int if_fs
-						int audio_fs, int audio_fc, int audio_taps, int audio_decim, int audio_interp
+void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,	 int if_fs,
+						int audio_fs, int audio_fc, int audio_taps, int audio_decim, int audio_interp,
 						std::vector<float> &processed_data,
 						int block_size, int block_count) 
 {
@@ -197,9 +197,10 @@ int main(int argc, char* argv[])
 	int if_fs = 240000;
 
 	int audio_fs = 48000;
-	int audio_decim = 5;
-	int audio_taps = 101;
 	int audio_fc = 16000;
+	int audio_taps = 101;
+	int audio_decim = 5;
+	int audio_interp = 1;
 	
 	std::vector<float> processed_data;
 
@@ -209,7 +210,7 @@ int main(int argc, char* argv[])
 	if (mode == 0){
 		rf_fs = 2400000; rf_decim = 10;
 		if_fs = 240000;
-		audio_fs = 48000; audio_decim = 5
+		audio_fs = 48000; audio_decim = 5;
 	}
 	else if (mode == 1){ 
 		rf_fs = 1152000; rf_decim = 4;
