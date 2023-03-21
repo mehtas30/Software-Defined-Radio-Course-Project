@@ -14,19 +14,19 @@ Ontario, Canada
 #include "../include/iofunc.h"
 #include "../include/logfunc.h"
 
-void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim, 
-						int audio_fs, int audio_fc, int audio_taps, int audio_decim, 
+void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,	 int if_fs
+						int audio_fs, int audio_fc, int audio_taps, int audio_decim, int audio_interp
 						std::vector<float> &processed_data,
 						int block_size, int block_count) 
 {
 
 	// coefficients for IQ -> IF LPFs, Fc = 100kHz
 	std::vector<float> rf_coeff;
-	impulseResponseLPF(rf_fs, rf_fc, rf_taps, rf_coeff);
+	impulseResponseLPF(rf_coeff, rf_fs, rf_fc, rf_taps, 1);
 	
 	// coefficients for IF -> audio LPF, Fc = 16kHz
 	std::vector<float> audio_coeff;
-	impulseResponseLPF(240000, audio_fc, audio_taps, audio_coeff);
+	impulseResponseLPF(audio_coeff, if_fs, audio_fc, audio_taps, audio_interp);
 	
 
 	// state saving for extracting FM band (Fc = 100kHz)
@@ -92,6 +92,10 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		// FM demodulation
 		std::vector<float> fm_demod;
 		FMDemod(fm_demod, prev_i, prev_q, i_ds, q_ds);
+		
+		// zero padding for upsampling
+		std::vector<float> fm_demod_us;
+		upsample(fm_demod_us, fm_demod, audio_interp);
 
 		// LPF (Fc = 16kHz)
 		std::vector<float> audio_filt;
@@ -163,7 +167,7 @@ int main(int argc, char* argv[])
 	std::vector<float> bin_data;
 	readBinData(in_fname, bin_data);
 
-	int mode = 0;
+	int mode = 2;
 
 	if (argc < 2){
 		std::cerr << "Operating in default mode 0" << std::endl;
@@ -189,22 +193,46 @@ int main(int argc, char* argv[])
 	int rf_fc = 100000;
 	int rf_taps = 151;
 	int rf_decim = 10;
+	
+	int if_fs = 240000;
 
 	int audio_fs = 48000;
 	int audio_decim = 5;
 	int audio_taps = 101;
 	int audio_fc = 16000;
+	
 	std::vector<float> processed_data;
 
-	int block_size = 1024 * rf_decim * audio_decim * 2;
+	int block_size = 1024 * rf_decim * 5 * 2;
 	int block_count = 0;
 
-	if (mode == 0){ 	 rf_fs = 2400000; audio_fs = 48000; }
-	else if (mode == 1){ rf_fs = 1152000; audio_fs = 48000; }
-	else if (mode == 2){ rf_fs = 2400000; audio_fs = 44100; }
-	else if (mode == 3){ rf_fs = 2304000; audio_fs = 44100; }
+	if (mode == 0){
+		rf_fs = 2400000; rf_decim = 10;
+		if_fs = 240000;
+		audio_fs = 48000; audio_decim = 5
+	}
+	else if (mode == 1){ 
+		rf_fs = 1152000; rf_decim = 4;
+		if_fs = 288000;
+		audio_fs = 48000; audio_decim = 4;
+	}
+	else if (mode == 2){ 
+		rf_fs = 2400000; rf_decim = 10;
+		if_fs = 240000;
+		audio_fs = 44100; audio_decim = 800; audio_interp = 147;
+		audio_taps *= audio_interp;
+		if_fs *= audio_interp;
+	}
+	else if (mode == 3){ 
+		rf_fs = 2304000; rf_decim = 9;
+		if_fs = 256000;
+		audio_fs = 44100; audio_decim = 2560; audio_interp = 441;
+		audio_taps *= audio_interp;
+		if_fs *= audio_interp; }
 
-	fmMonoProcessing(rf_fs, rf_fc, rf_taps, rf_decim, audio_fs, audio_fc, audio_taps, audio_decim, processed_data, block_size, block_count);
+	fmMonoProcessing(rf_fs, rf_fc, rf_taps, rf_decim, if_fs, 
+					audio_fs, audio_fc, audio_taps, audio_decim, audio_interp, 
+					processed_data, block_size, block_count);
 
 	std::cerr << "done" << std::endl;
 	return 0;

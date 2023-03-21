@@ -11,7 +11,7 @@ Ontario, Canada
 #include <cmath>
 
 // function to compute the impulse response "h" based on the sinc function
-void impulseResponseLPF(const float Fs, const float Fc, const int num_taps, std::vector<float> &h)
+void impulseResponseLPF(std::vector<float> &h, const float Fs, const float Fc, const int num_taps, const int gain)
 {
 	// allocate memory for the impulse response
 	h.clear(); h.resize(num_taps, 0.0);
@@ -31,6 +31,8 @@ void impulseResponseLPF(const float Fs, const float Fc, const int num_taps, std:
 		}
 
 		h[i] *= std::pow(sin(i * PI * inverse_taps), 2);
+		
+		if (gain != 1){ h[i] *= gain; }
 	}
 }
 
@@ -95,14 +97,23 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 	}
 }
 
-void downsample(std::vector<float> &downsampled, const std::vector<float> &original, int decim) {
+void downsample(std::vector<float> &downsampled, const std::vector<float> &data, const int down_factor) {
 
 	downsampled.clear();
-	for (int i=0; i < (int)original.size(); i += decim) {
-		downsampled.push_back(original[i]);
+	for (int i = 0; i < (int)data.size(); i += down_factor) {
+		downsampled.push_back(data[i]);
 	}
 }
 
-void resample(std::vector<float> &resampled, const std::vector<float> &original, const int og_rate, const int end_rate){
+void upsample(std::vector<float> &upsampled, const std::vector<float> &data, const int up_factor){
+	upsampled.clear();
+	if (up_factor == 1) {
+		upsampled.insert(upsampled.end(), data.begin(), data.end());
+		return;
+	}
 	
+	upsampled.resize(data.size() * up_factor);
+	for (int i = 0; i < (int)data.size(); i++){
+		upsampled[i * up_factor] = data[i];
+	}
 }
