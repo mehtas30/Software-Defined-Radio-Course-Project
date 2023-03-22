@@ -125,6 +125,19 @@ def myDemod(i_ds, q_ds, p_i=0, p_q=0):
 
     return demod, prevI, prevQ
 
+def mixer(arr1, arr2):
+    mixedData = []
+    for i in range(len(arr2)):
+            mixedData[i] = arr1[i] * arr2[i]
+    return mixedData
+
+def lrExtraction(monoData, stereoData):
+    leftData = []
+    rightData = []
+    for i in range(len(monoData)):
+        leftData = (monoData[i] + stereoData[i]) / 2
+        rightData = (monoData[i] - stereoData[i]) / -2
+        
 rf_Fs = 2.4e6
 rf_Fc = 100e3
 rf_taps = 151
@@ -245,5 +258,16 @@ if __name__ == "__main__":
         else:
             channelExtractData = np.concatenate(channelExtractData, channelExtractFiltered)
         """
+        
+        #Stereo Processing
+        #Mixer
+        mixedData = mixer(channelExtractData, carrierRecoveryData)
+        #LPF
+        low_pass_coeff = lp_impulse_response_coeff(audio_Fc, audio_Fs, audio_taps)
+        stereoData = lp_filter(low_pass_coeff, mixedData)
+        #LR blocks
+        lData,rData = lrExtraction(monoData,stereoData)
+        
+
 
         block_count += 1
