@@ -99,7 +99,7 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 	}
 }
 
-void downsample(std::vector<float> &downsampled, const std::vector<float> &data, const int down_factor) {
+void downsample(std::vector<float> &downsampled, const std::vector<float> data, const int down_factor) {
 
 	downsampled.clear();
 	
