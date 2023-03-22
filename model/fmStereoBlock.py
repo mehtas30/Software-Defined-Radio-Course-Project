@@ -25,7 +25,7 @@ def bandpassFilt(fb, fe, fs, n_taps):
     return coefficients
 
 def fmPll(pllIn, freq, Fs, nocoScale = 1.0, phaseAdjust = 0.0, normBandwidth = 0.01):
-    
+
 
     Cp = 2.666
     Ci = 3.555
@@ -66,7 +66,7 @@ def filter(coefficients, data, state):
     data_len = len(data)
     coeff_len = len(coefficients)
     filtered_data = np.zeros(data_len)
-    
+
     data = np.concatenate([state,data])
 
     # discrete convolution
@@ -76,7 +76,7 @@ def filter(coefficients, data, state):
 
     # current unfiltered block is next block's filter state
     filter_state = data[-state_len:]
-    
+
     return filtered_data, filter_state
 
 def lp_impulse_response_coeff(Fc, Fs, N_taps):
@@ -111,7 +111,7 @@ def myDemod(i_ds, q_ds, p_i=0, p_q=0):
 
         derivI = currentI - prevI
         derivQ = currentQ - prevQ
-        
+
         denominator = currentI**2 + currentQ**2
 
         if (denominator == 0):
@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     # read the raw IQ data from the recorded file
     # IQ data is assumed to be in 8-bits unsigned (and interleaved)
-    in_fname = "data\samples_u8.raw"
+    in_fname = "../data/samples_u8.raw"
     raw_data = np.fromfile(in_fname, dtype='uint8')
     print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
     # IQ data is normalized between -1 and +1 in 32-bit float format
@@ -205,8 +205,8 @@ if __name__ == "__main__":
         q_filt, state_q_lpf_100k = signal.lfilter(rf_coeff, 1.0, \
                  iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
                  zi=state_q_lpf_100k)
-        #i_filt, state_i_lpf_100k = lp_filter(rf_coeff, 
-        #		       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2], 
+        #i_filt, state_i_lpf_100k = lp_filter(rf_coeff,
+        #		       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
         #			   state_i_lpf_100k)
         #q_filt, state_q_lpf_100k = lp_filter(rf_coeff,
         #		       iq_data[(block_count)*block_size+1:(block_count+1)*block_size:2],
@@ -228,27 +228,20 @@ if __name__ == "__main__":
         Stereo Carrier Recovery
         """
         carrierRecoveryCoeff = bandpassFilt(18.5e3, 19.5e3, 240e3, audio_taps)
-        firwin_coeff = signal.firwin(audio_taps,[18.5e3, 19.5e3], fs=240e3, window=('hann'), pass_zero='bandpass')
 
-        if block_count == 0:
-            print(carrierRecoveryCoeff)
-            print(firwin_coeff)
-        
-        break
-
-        """
         carrierRecoveryFiltered, carrierRecoveryState = filter(carrierRecoveryCoeff, fm_demod, carrierRecoveryState)
 
         carrierRecoveryBlock = fmPll(carrierRecoveryFiltered,19e3,240e3,2,0,0.01)
 
         if (block_count != 0):
-            carrierRecoveryData = np.concatenate(carrierRecoveryData, carrierRecoveryBlock)
+            carrierRecoveryData = np.concatenate([carrierRecoveryData, carrierRecoveryBlock])
         else:
             carrierRecoveryData = carrierRecoveryBlock
 
-    
+        """
         Stereo Channel Extraction
-        
+        """
+
         channelExtractCoeff = bandpassFilt(22e3, 54e3, 240e3, audio_taps)
 
         channelExtractFiltered, channelExtractState = filter(channelExtractCoeff, fm_demod, channelExtractState)
@@ -256,6 +249,7 @@ if __name__ == "__main__":
         if (block_count == 0):
             channelExtractData = channelExtractFiltered
         else:
+<<<<<<< HEAD
             channelExtractData = np.concatenate(channelExtractData, channelExtractFiltered)
         """
         
@@ -268,6 +262,9 @@ if __name__ == "__main__":
         #LR blocks
         lData,rData = lrExtraction(monoData,stereoData)
         
+=======
+            channelExtractData = np.concatenate([channelExtractData, channelExtractFiltered])
+>>>>>>> db0d12ba79385d4bef3d890fae7bb159860b80ae
 
 
         block_count += 1

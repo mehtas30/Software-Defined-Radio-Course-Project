@@ -31,25 +31,25 @@ void impulseResponseLPF(std::vector<float> &h, const float Fs, const float Fc, c
 		}
 
 		h[i] *= std::pow(sin(i * PI * inverse_taps), 2);
-		
+
 		if (gain != 1){ h[i] *= gain; }
 	}
 }
 
 // function to compute the filtered output "y" by doing the convolution
 // of the input data "x" with the impulse response "h" in blocks
-void LPFilter(std::vector<float> &output, 
+void LPFilter(std::vector<float> &output,
 			std::vector<float> &state,
-			const std::vector<float> &input, 
+			const std::vector<float> &input,
 			const std::vector<float> &coeff)
 {
 	int taps = (int)coeff.size();
 	int block_size = (int)input.size();
 	std::cerr << "taps=" << taps << ", block size=" << block_size << std::endl;
-	
+
 	// allocate memory for the output (filtered) data
 	output.clear(); output.resize(block_size, 0.0);
-		
+
 	// concatenate state, input
 	std::vector<float> signal;
 	signal.insert(signal.end(), state.begin(), state.end());
@@ -72,11 +72,11 @@ void LPFilter(std::vector<float> &output,
 	}
 }
 
-	
+
 void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const std::vector<float> &i_ds, const std::vector<float> &q_ds) {
-	
+
 	fm_demod.clear(); fm_demod.resize(i_ds.size(), 0.0);
-	
+
 	for (int i = 0; i < (int)i_ds.size(); i++) {
 		float curr_i = i_ds[i];
 		float curr_q = q_ds[i];
@@ -102,11 +102,11 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 void downsample(std::vector<float> &downsampled, const std::vector<float> data, const int down_factor) {
 
 	downsampled.clear();
-	
+
 	for (int i = 0; i < (int)data.size(); i += down_factor) {
-		
+
 		downsampled.push_back(data[i]);
-	
+
 	}
 }
 
@@ -116,7 +116,7 @@ void upsample(std::vector<float> &upsampled, const std::vector<float> &data, con
 		upsampled.insert(upsampled.end(), data.begin(), data.end());
 		return;
 	}
-	
+
 	upsampled.resize(data.size() * up_factor);
 	for (int i = 0; i < (int)data.size(); i++){
 		upsampled[i * up_factor] = data[i];
