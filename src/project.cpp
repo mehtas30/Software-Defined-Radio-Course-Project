@@ -96,7 +96,7 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 			// prepare a block of audio data to be redirected to stdout at once
 			else audio_data[k] = static_cast<short int>(processed_data[k] * 16384);
 		}
-
+		
 		fwrite(&audio_data[0], sizeof(short int), audio_data.size(), stdout);
 
 	}
@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
 	std::vector<float> bin_data;
 	readBinData(in_fname, bin_data);
 
-	int mode = 0;
+	int mode = 2;
 
 	if (argc < 2){
 		std::cerr << "Operating in default mode 0" << std::endl;
