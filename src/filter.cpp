@@ -31,20 +31,21 @@ void impulseResponseLPF(std::vector<float> &h, const float Fs, const float Fc, c
 		}
 
 		h[i] *= std::pow(sin(i * PI * inverse_taps), 2);
-		
+
 		if (gain != 1){ h[i] *= gain; }
 	}
 }
 
 // function to compute the filtered output "y" by doing the convolution
 // of the input data "x" with the impulse response "h" in blocks
-void LPFilter(std::vector<float> &output, 
+void LPFilter(std::vector<float> &output,
 			std::vector<float> &state,
-			const std::vector<float> &input, 
+			const std::vector<float> &input,
 			const std::vector<float> &coeff)
 {
 	int taps = (int)coeff.size();
 	int block_size = (int)input.size();
+
 	//std::cerr << "taps=" << taps << ", block size=" << block_size << std::endl;
 	
 	// allocate memory for the output (filtered) data
@@ -78,7 +79,7 @@ void LPFilter(std::vector<float> &output,
 	}
 }
 
-	
+
 void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const std::vector<float> &i_ds, const std::vector<float> &q_ds) {
 	
 	fm_demod.clear(); fm_demod.reserve(i_ds.size());
@@ -125,6 +126,7 @@ void upsample(std::vector<float> &upsampled, const std::vector<float> &data, con
 	
 	upsampled.reserve(data.size() * up_factor);
 	upsampled.resize(data.size() * up_factor, 0.0);
+
 	for (int i = 0; i < (int)data.size(); i++){
 		upsampled[i * up_factor] = data[i];
 	}
