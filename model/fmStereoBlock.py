@@ -249,9 +249,8 @@ if __name__ == "__main__":
         if (block_count == 0):
             channelExtractData = channelExtractFiltered
         else:
-<<<<<<< HEAD
             channelExtractData = np.concatenate(channelExtractData, channelExtractFiltered)
-        """
+        
         
         #Stereo Processing
         #Mixer
@@ -262,9 +261,6 @@ if __name__ == "__main__":
         #LR blocks
         lData,rData = lrExtraction(monoData,stereoData)
         
-=======
-            channelExtractData = np.concatenate([channelExtractData, channelExtractFiltered])
->>>>>>> db0d12ba79385d4bef3d890fae7bb159860b80ae
 
 
         block_count += 1
