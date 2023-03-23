@@ -9,6 +9,7 @@ Ontario, Canada
 #include "dy4.h"
 #include "../include/filter.h"
 #include <cmath>
+#include <chrono>
 
 // function to compute the impulse response "h" based on the sinc function
 void impulseResponseLPF(std::vector<float> &h, const float Fs, const float Fc, const int num_taps, const int gain)
@@ -45,9 +46,9 @@ void LPFilter(std::vector<float> &output,
 {
 	int taps = (int)coeff.size();
 	int block_size = (int)input.size();
+	int state_size = (int)state.size();
 
 	//std::cerr << "taps=" << taps << ", block size=" << block_size << std::endl;
-	
 	// allocate memory for the output (filtered) data
 	output.clear(); 
 	output.reserve(block_size);
@@ -58,22 +59,70 @@ void LPFilter(std::vector<float> &output,
 	std::vector<float> signal;
 	signal.insert(signal.end(), state.begin(), state.end());
 	signal.insert(signal.end(), input.begin(), input.end());
-	
 
 	// discrete convolution
 	for (int n = 0; n < block_size; n++){
 		float sum_product = 0.0;
 		for (int k = 0; k < taps; k++){
-			sum_product += coeff[k] * signal[n-k + taps-1];
+			int nk = n-k;
+			if ((nk >= 0) && (nk < block_size)){
+				sum_product += coeff[k] * input[nk];
+			}
+			else {
+				sum_product += coeff[k] * state[state_size + nk];
+			}
 		}
 		output.push_back(sum_product);
 	}
+	
 	//std::cerr << "filled size = " << output.size() << std::endl;
 	// state saving
 	state.clear();
 	state.resize(taps - 1);
 	int indexState = 0;
 	for (int c = block_size - taps+1; c < block_size; c++){
+		state[indexState] = input[c];
+		indexState++;
+	}
+}
+
+void resample(std::vector<float> &output,
+			std::vector<float> &state,
+			const std::vector<float> &input,
+			const std::vector<float> &coeff,
+			const int up_factor,
+			const int down_factor)
+{
+	int taps = (int)coeff.size();
+	int block_size = (int)input.size();
+	int state_size = (int)state.size();
+
+	//std::cerr << "taps=" << taps << ", block size=" << block_size << std::endl;
+	// allocate memory for the output (filtered) data
+	output.clear(); 
+	output.reserve(block_size * up_factor / down_factor);
+	output.resize(block_size * up_factor / down_factor, 0.0);
+	
+	for (int n = 0; n < output.size(); n++){
+		int phase = (n * down_factor) % up_factor;
+		
+		for (int k = phase; k < taps; k += up_factor){
+			int j = int(((down_factor * n) - k) / up_factor);
+			
+			if ((j >= 0) && (j < block_size)){
+				output[n] += coeff[k] * input[j];
+			} 
+			else{
+				output[n] += coeff[k] * state[state_size + j];
+			}
+		}
+	}
+	
+	// state saving
+	state.clear();
+	state.resize(taps - 1);
+	int indexState = 0;
+	for (int c = block_size - taps + 1; c < block_size; c++){
 		state[indexState] = input[c];
 		indexState++;
 	}
@@ -108,12 +157,7 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 
 void downsample(std::vector<float> &downsampled, const std::vector<float> &data, const int down_factor) {
 
-<<<<<<< HEAD
-	downsampled.clear();
-=======
-
 	downsampled.clear(); downsampled.reserve(data.size());
->>>>>>> ccd4887280032264eae7c8ec044ead73516db250
 	
 	for (int i = 0; i < data.size(); i += down_factor) {
 		//std::cerr << "c0" << std::endl;

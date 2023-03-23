@@ -18,6 +18,8 @@ void impulseResponseLPF(std::vector<float> &, const float, const float, const in
 
 void LPFilter(std::vector<float> &, std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
 
+void resample(std::vector<float> &output, std::vector<float> &state, const std::vector<float> &input, const std::vector<float> &coeff, const int up_factor, const int down_factor);
+
 void FMDemod(std::vector<float> &, float &, float &, const std::vector<float> &, const std::vector<float> &);
 
 void downsample(std::vector<float> &, const std::vector<float> &, const int);
