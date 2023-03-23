@@ -20,7 +20,7 @@ void LPFilter(std::vector<float> &, std::vector<float> &, const std::vector<floa
 
 void FMDemod(std::vector<float> &, float &, float &, const std::vector<float> &, const std::vector<float> &);
 
-void downsample(std::vector<float> &, const std::vector<float>, const int);
+void downsample(std::vector<float> &, const std::vector<float> &, const int);
 
 void upsample(std::vector<float> &, const std::vector<float> &, const int);
 
