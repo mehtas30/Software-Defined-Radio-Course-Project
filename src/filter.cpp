@@ -108,8 +108,12 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 
 void downsample(std::vector<float> &downsampled, const std::vector<float> &data, const int down_factor) {
 
+<<<<<<< HEAD
+	downsampled.clear();
+=======
 
 	downsampled.clear(); downsampled.reserve(data.size());
+>>>>>>> ccd4887280032264eae7c8ec044ead73516db250
 	
 	for (int i = 0; i < data.size(); i += down_factor) {
 		//std::cerr << "c0" << std::endl;
