@@ -125,6 +125,12 @@ def myDemod(i_ds, q_ds, p_i=0, p_q=0):
 
     return demod, prevI, prevQ
 
+def mixer(arr1, arr2):
+    mixedData = np.empty(len(arr1))
+    for i in range(len(arr1)):
+            mixedData[i] = arr1[i] * arr2[i]
+    return mixedData
+
 rf_Fs = 2.4e6
 rf_Fc = 100e3
 rf_taps = 151
