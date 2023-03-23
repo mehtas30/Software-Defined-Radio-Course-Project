@@ -3,6 +3,7 @@ from scipy.io import wavfile
 from scipy import signal
 import numpy as np
 import math
+import sys
 
 from fmSupportLib import fmDemodArctan, fmPlotPSD
 
@@ -26,14 +27,13 @@ def bandpassFilt(fb, fe, fs, n_taps):
 
 def fmPll(pllIn, freq, Fs, nocoScale = 1.0, phaseAdjust = 0.0, normBandwidth = 0.01):
 
-
     Cp = 2.666
     Ci = 3.555
 
     Kp = (normBandwidth) * Cp
     Ki = (normBandwidth*normBandwidth) * Ci
 
-    ncoOut = np.empty(len(pllIn) + 1)
+    ncoOut = np.empty(len(pllIn))
 
     integrator = 0.0
     phaseEst = 0.0
@@ -56,7 +56,7 @@ def fmPll(pllIn, freq, Fs, nocoScale = 1.0, phaseAdjust = 0.0, normBandwidth = 0
         trigArg = 2*math.pi * (freq/Fs) * (trigOffset) + phaseEst
         feedbackI = math.cos(trigArg)
         feedbackQ = math.sin(trigArg)
-        ncoOut[i+1] = math.cos(trigArg * nocoScale + phaseAdjust)
+        ncoOut[i] = math.cos(trigArg * nocoScale + phaseAdjust)
 
     return ncoOut
 
@@ -125,19 +125,87 @@ def myDemod(i_ds, q_ds, p_i=0, p_q=0):
 
     return demod, prevI, prevQ
 
+def upsample(data, up_factor):
+    if up_factor == 1:
+        return data
+        
+    resampled_data = np.zeros(len(data) * up_factor)
+    for i in range(len(data)):
+        resampled_data[i * up_factor] = data[i]
+    return resampled_data
+    
+def downsample(data, down_factor):
+    return data[::down_factor]
+
 def mixer(arr1, arr2):
-    mixedData = []
-    for i in range(len(arr2)):
-            mixedData[i] = arr1[i] * arr2[i]
-    return mixedData
+    for i in range(len(arr1)):
+            arr1[i] *= arr2[i]
+    return arr1
 
 def lrExtraction(monoData, stereoData):
-    leftData = []
-    rightData = []
+    leftData = np.empty(len(monoData))
+    rightData = np.empty(len(monoData))
     for i in range(len(monoData)):
-        leftData = (monoData[i] + stereoData[i]) / 2
-        rightData = (monoData[i] - stereoData[i]) / -2
-        
+        leftData[i] = (monoData[i] + stereoData[i]) / 2
+        rightData[i] = (monoData[i] - stereoData[i]) / 2
+    return leftData, rightData
+
+def stereoRecovery(fm_demod, carrierRecoveryState, carrierRecoveryData):
+    carrierRecoveryCoeff = bandpassFilt(18.5e3, 19.5e3, 240e3, audio_taps)
+
+    carrierRecoveryFiltered, carrierRecoveryState = filter(carrierRecoveryCoeff, fm_demod, carrierRecoveryState)
+
+    carrierRecoveryBlock = fmPll(carrierRecoveryFiltered,19e3,240e3,2,0,0.01)
+
+    carrierRecoveryData= carrierRecoveryBlock
+
+    return carrierRecoveryData, carrierRecoveryState
+
+def stereoExtract(fm_demod, channelExtractState, channelExtractData):
+    channelExtractCoeff = bandpassFilt(22e3, 54e3, 240e3, audio_taps)
+
+    channelExtractFiltered, channelExtractState = filter(channelExtractCoeff, fm_demod, channelExtractState)
+
+    channelExtractData = channelExtractFiltered
+
+    #print(len(fm_demod))
+
+    #channelExtractData = np.concatenate([channelExtractData, channelExtractFiltered])
+
+    return channelExtractData, channelExtractState
+
+def monoProcess(fm_demod, monoCoeff, audio_state, audioDecim, audio_data):
+    audio_filt, audio_state = filter(monoCoeff, fm_demod, audio_state)
+
+    audio_block = downsample(audio_filt, audioDecim)
+
+    audio_data = audio_block
+    #print(len(audio_block))
+    #audio_data = np.concatenate([audio_data, audio_block])
+
+    return audio_data, audio_state
+    
+def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, upFactor, downFactor):
+    #print(len(leftData))
+    mixerData = mixer(channelExtractData, carrierRecoveryData)
+    #print(len(mixerData))
+    #print("this is mixer")
+    #print(mixerData)
+    downSampled = downsample(mixerData, downFactor)
+    #print("downsample")
+    #print(len(downSampled))
+    upSampled = upsample(downSampled, upFactor)
+    #upSampled = upsample(mixerData, upFactor)
+    #print("upsample")
+    #print(len(upSampled))
+    leftNewData, rightNewData = lrExtraction(monoData, upSampled)
+
+    leftData = np.concatenate([leftData, leftNewData])
+    rightData = np.concatenate([rightData, rightNewData])
+
+    return leftData, rightData
+
+ 
 rf_Fs = 2.4e6
 rf_Fc = 100e3
 rf_taps = 151
@@ -148,11 +216,53 @@ audio_Fc = 16e3
 audio_taps = 101
 audio_decim = 5
 
+
+mode = 0
+
 if __name__ == "__main__":
+    if mode == 0:
+        rf_Fs = 2.4e6
+        rf_decim = 10
+        if_Fs = 240e3
+        audio_Fs = 48e3
+        audio_decim = 5
+        audio_taps = 101
+        audio_interp = 1
+    elif mode == 1:
+        rf_Fs = 1.152e6
+        rf_decim = 4
+        if_Fs = 288e3
+        audio_Fs = 48e3
+        audio_decim = 4
+        audio_taps = 101
+        audio_interp = 1
+    elif mode == 2:
+        rf_Fs = 2.4e6
+        rf_decim = 10
+        if_Fs = 240e3
+        audio_Fs = 44.1e3
+        audio_decim = 800
+        audio_interp = 147
+        audio_taps = 101
+        audio_taps *= audio_interp
+        if_Fs *= audio_interp
+    elif mode == 3:
+        rf_Fs = 2.304e6
+        rf_decim = 9
+        if_Fs = 256e3
+        audio_Fs = 44.1e3
+        audio_decim = 2560
+        audio_interp = 441
+        audio_taps = 101
+        audio_taps *= audio_interp
+        if_Fs *= audio_interp
+    else:
+        print(f'Invalid operating mode!')
+        sys.exit()
 
     # read the raw IQ data from the recorded file
     # IQ data is assumed to be in 8-bits unsigned (and interleaved)
-    in_fname = "../data/samples_u8.raw"
+    in_fname = "data\samples_u8.raw"
     raw_data = np.fromfile(in_fname, dtype='uint8')
     print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
     # IQ data is normalized between -1 and +1 in 32-bit float format
@@ -174,7 +284,7 @@ if __name__ == "__main__":
     rf_coeff = lp_impulse_response_coeff(rf_Fc, rf_Fs, rf_taps)
 
     # coefficients for IF -> audio LPF, Fc = 16kHz
-    audio_coeff = lp_impulse_response_coeff(audio_Fc, 240e3, audio_taps)
+    monoCoeff = lp_impulse_response_coeff(audio_Fc, 240e3, audio_taps)
 
     # state-saving for extracting FM band (Fc = 100kHz)
     state_i_lpf_100k = np.zeros(rf_taps-1)
@@ -183,12 +293,17 @@ if __name__ == "__main__":
     prevI = 0
     prevQ = 0
     # state-saving for extracting mono audio (Fc = 16kHz)
+    monoState = np.zeros(audio_taps-1)
     channelExtractState = np.zeros(audio_taps-1)
     carrierRecoveryState = np.zeros(audio_taps-1)
 
     # audio buffer that stores all the audio blocks
     carrierRecoveryData = np.array([]) # used to concatenate filtered blocks (audio data)
     channelExtractData = np.array([])
+    monoData = np.array([])
+    leftData = np.array([])
+    rightData = np.array([])
+    
 
     # if the number of samples in the last block is less than the block size
     # it is fine to ignore the last few samples from the raw IQ file
@@ -214,8 +329,8 @@ if __name__ == "__main__":
 
 
         # downsample the I/Q data from the FM channel
-        i_ds = i_filt[::rf_decim]
-        q_ds = q_filt[::rf_decim]
+        i_ds = downsample(i_filt, rf_decim)
+        q_ds = downsample(q_filt, rf_decim)
 
         # FM demodulator
         # you will need to implement your own FM demodulation based on:
@@ -224,43 +339,29 @@ if __name__ == "__main__":
         # you MUST have also "custom" state-saving for your own FM demodulator
         fm_demod, prevI, prevQ = myDemod(i_ds, q_ds, prevI, prevQ)
 
-        """
-        Stereo Carrier Recovery
-        """
-        carrierRecoveryCoeff = bandpassFilt(18.5e3, 19.5e3, 240e3, audio_taps)
+        fm_demod_us = upsample(fm_demod, audio_interp)
 
-        carrierRecoveryFiltered, carrierRecoveryState = filter(carrierRecoveryCoeff, fm_demod, carrierRecoveryState)
-
-        carrierRecoveryBlock = fmPll(carrierRecoveryFiltered,19e3,240e3,2,0,0.01)
-
-        if (block_count != 0):
-            carrierRecoveryData = np.concatenate([carrierRecoveryData, carrierRecoveryBlock])
-        else:
-            carrierRecoveryData = carrierRecoveryBlock
-
-        """
-        Stereo Channel Extraction
-        """
-
-        channelExtractCoeff = bandpassFilt(22e3, 54e3, 240e3, audio_taps)
-
-        channelExtractFiltered, channelExtractState = filter(channelExtractCoeff, fm_demod, channelExtractState)
-
-        if (block_count == 0):
-            channelExtractData = channelExtractFiltered
-        else:
-            channelExtractData = np.concatenate(channelExtractData, channelExtractFiltered)
+        channelExtractData, channelExtractState = extractData = stereoExtract(fm_demod_us, channelExtractState, channelExtractData)
+        #print("This is extract data")
+        #print(channelExtractData)
+        carrierRecoveryData, carrierRecoveryState = stereoRecovery(fm_demod_us, carrierRecoveryState, carrierRecoveryData)
+        #print("this is carrier")
+        #print(carrierRecoveryData)
+        monoData, monoState = monoProcess(fm_demod_us, monoCoeff, monoState, audio_decim, monoData)
+        #print("This is mono")
+    
         
-        
-        #Stereo Processing
-        #Mixer
-        mixedData = mixer(channelExtractData, carrierRecoveryData)
-        #LPF
-        low_pass_coeff = lp_impulse_response_coeff(audio_Fc, audio_Fs, audio_taps)
-        stereoData = lp_filter(low_pass_coeff, mixedData)
-        #LR blocks
-        lData,rData = lrExtraction(monoData,stereoData)
-        
-
+        leftData, rightData = stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, audio_interp, audio_decim)
 
         block_count += 1
+
+    print('Finished processing all the blocks from the recorded I/Q samples')
+
+	# write audio data to file
+    out_fname1 = "data\leftData.wav"
+    wavfile.write(out_fname1, int(audio_Fs), np.int16((leftData/2)*32767))
+    print("Written audio samples to \"" + out_fname1 + "\" in signed 16-bit format")
+
+    out_fname2 = "data\ightData.wav"
+    wavfile.write(out_fname2, int(audio_Fs), np.int16((rightData/2)*32767))
+    print("Written audio samples to \"" + out_fname2 + "\" in signed 16-bit format")
