@@ -13,6 +13,7 @@ Ontario, Canada
 #include "../include/genfunc.h"
 #include "../include/iofunc.h"
 #include "../include/logfunc.h"
+#include <chrono>
 
 void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,	 int if_fs,
 						int audio_fs, int audio_fc, int audio_taps, int audio_decim, int audio_interp,
@@ -39,117 +40,81 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 	// state saving for extracting mono audio (Fc = 16kHz)
 	std::vector<float> audio_state(audio_taps-1, 0.0);
 	
-	// extracted 0-100kHz band
+	std::vector<float> i_block;
+	std::vector<float> q_block;
+	i_block.reserve(block_size); i_block.resize(block_size);
+	q_block.reserve(block_size); q_block.resize(block_size);
+	
 	std::vector<float> i_filt;
 	std::vector<float> q_filt;
+	
+	std::vector<float> i_ds; 
+	std::vector<float> q_ds; 
+	
+	std::vector<float> fm_demod; 
+	
+	std::vector<float> fm_demod_us;
+	
+	std::vector<float> audio_filt;
+	
+	
 
 	for (;; block_count++){
+		auto t_block_start = std::chrono::high_resolution_clock::now();
+		
 		std::vector<float> iq_block(block_size * 2);
 		readStdinBlockData(block_size * 2, block_count, iq_block);
 		if((std::cin.rdstate()) != 0){
 			std::cerr << "End of input stream reached!" << std::endl;
 			exit(1);
 		}
-		std::cerr << "Read block " << block_count << std::endl;
+		//std::cerr << "Read block " << block_count << std::endl;
 
 		// separate iq_block into I and Q
-		std::vector<float> i_block(block_size);
-		std::vector<float> q_block(block_size);
 		int j = 0;
 		for (int i = 0; i < (int)iq_block.size(); i+=2){
 			i_block[j] = iq_block[i];
 			q_block[j] = iq_block[i+1];
 			j++;
 		};
-		
+
 		// LPF (Fc = 100kHz) extract FM band
+		//std::cerr << "Extracting FM band...\ntaps=" << rf_coeff.size() << ", block size=" << i_block.size() << std::endl;
 		LPFilter(i_filt, state_i_lpf_100k, i_block, rf_coeff);
 		LPFilter(q_filt, state_q_lpf_100k, q_block, rf_coeff);	
 		
-		
 		// from 2.4MS/s -> 240kS/s (decim=10)
-		std::vector<float> i_ds;
-		std::vector<float> q_ds;
+		//std::cerr << "Downsampling FM band..." << std::endl;
 		downsample(i_ds, i_filt, rf_decim);
 		downsample(q_ds, q_filt, rf_decim);
 		
-		//if (block_count == 0){
-			//std::cerr << "\n";
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "i=" << i_block[i] << ", q=" << q_block[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "i_filt=" << i_filt[i] << ", q_filt=" << q_filt[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "i_ds=" << i_ds[i] << ", q_ds=" << q_ds[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
-		//}
-			
 		// FM demodulation
-		std::vector<float> fm_demod;
+		//std::cerr << "Demodulating..." << std::endl;
 		FMDemod(fm_demod, prev_i, prev_q, i_ds, q_ds);
 		
 		// zero padding for upsampling
-		std::vector<float> fm_demod_us;
+		//std::cerr << "Upsampling..." << std::endl;
 		upsample(fm_demod_us, fm_demod, audio_interp);
 
 		// LPF (Fc = 16kHz)
-		std::vector<float> audio_filt;
+		//std::cerr << "Extracting mono audio...\ntaps=" << audio_coeff.size() << ", block size=" << fm_demod_us.size() << std::endl;
+		auto t_start = std::chrono::high_resolution_clock::now();
 		LPFilter(audio_filt, audio_state, fm_demod_us, audio_coeff);
-
+		auto t_end = std::chrono::high_resolution_clock::now();
+		
+		std::chrono::duration<double, std::milli> ms_double = t_end - t_start;
+		std::cerr << "Upsampled filter = " << ms_double.count() << "ms\n" << std::endl;
+		
 		// from 240kS/s -> 48kS/s
+		//std::cerr << "Downsampling mono audio..." << std::endl;
 		downsample(processed_data, audio_filt, audio_decim);
-
-		
-		//if (block_count == 0){
-			//std::cerr << "\n";
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "fm_demod=" << fm_demod[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "audio_filt=" << audio_filt[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << "processed_data=" << processed_data[i] << "\n";
-			//}
-			//std::cerr << "\n" << std::endl;
-		//}
-		
-		//if (block_count == 10){
-			//std::vector<float> vector_index;
-			//genIndexVector(vector_index, fm_demod.size());
-			//logVector("demod_time", vector_index, fm_demod);
-			//logVector("i_block_time", vector_index, i_block);
-			//logVector("q_block_time", vector_index, q_block);
-			//logVector("iq_block_time", vector_index, iq_block);
-			//logVector("i_filt_time", vector_index, i_filt);
-			//logVector("q_filt_time", vector_index, q_filt);
-			//logVector("audio_filt_time", vector_index, audio_filt);
-			
-			//std::vector<std::complex<float>> Xf;
-			//DFT(fm_demod, Xf);
-			
-			//std::vector<float> Xmag;
-			//computeVectorMagnitude(Xf, Xmag);
-			
-			//vector_index.clear();
-			//genIndexVector(vector_index, Xmag.size());
-			//logVector("demod_freq", vector_index, Xmag);
-			
-			//std::vector<float> freq, psd_est;
-			//estimatePSD(freq, psd_est, fm_demod, block_size, 240);
-			//logVector("demod_psd", freq, psd_est);
-		//}
-		
 		
 		// writing by block to stdout
-		std::vector<short int> audio_data(block_size / rf_decim / audio_decim);
+		//std::cerr << "Writing to stdout..." << std::endl;
+		std::vector<short int> audio_data;
+		audio_data.reserve(processed_data.size());
+		audio_data.resize(processed_data.size(), 0.0);
+		
 		for (unsigned int k=0; k < processed_data.size(); k++){
 			if (std::isnan(processed_data[k])) audio_data[k] = 0;
 			// prepare a block of audio data to be redirected to stdout at once
@@ -157,6 +122,11 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		}
 		
 		fwrite(&audio_data[0], sizeof(short int), audio_data.size(), stdout);
+		
+		
+		auto t_block_end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> block_ms_double = t_block_end - t_block_start;
+		std::cerr << "Block = " << block_ms_double.count() << "ms\n" << std::endl;
 	}
 }
 
@@ -192,20 +162,20 @@ int main(int argc, char* argv[])
 
 	int rf_fs = 2400000;
 	int rf_fc = 100000;
-	int rf_taps = 30;
+	int rf_taps = 51;
 	int rf_decim = 10;
 	
 	int if_fs = 240000;
 
 	int audio_fs = 48000;
 	int audio_fc = 16000;
-	int audio_taps = 30;
+	int audio_taps = 51;
 	int audio_decim = 5;
 	int audio_interp = 1;
 	
 	std::vector<float> processed_data;
 
-	int block_size = 128 * rf_decim * 5 * 2;
+	int block_size = 128 * rf_decim * audio_decim;
 	int block_count = 0;
 
 	if (mode == 0){
