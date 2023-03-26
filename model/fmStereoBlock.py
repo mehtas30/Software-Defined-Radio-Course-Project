@@ -8,8 +8,8 @@ import sys
 from fmSupportLib import fmDemodArctan, fmPlotPSD
 
 def bandpassFilt(fb, fe, fs, n_taps):
-    normCent = ((fe + fb)/2) / (fs/2)
-    normPass = (fe - fb) / (fs/2)
+    normCent = (fe + fb) / fs
+    normPass = 2 * (fe - fb) / fs
 
     coefficients = np.zeros(n_taps-1)
 
@@ -17,7 +17,7 @@ def bandpassFilt(fb, fe, fs, n_taps):
         if (i == (n_taps-1)/2):
             coefficients[i] = normPass
         else:
-            value = math.pi * (normPass/2) * (i - ((n_taps-1)/2))
+            value = math.pi * (normPass * 0.5) * (i - ((n_taps-1) * 0.5))
             coefficients[i] = normPass * (math.sin(value) / value)
 
         coefficients[i] *= math.cos(i * math.pi * normCent)
@@ -85,13 +85,13 @@ def lp_impulse_response_coeff(Fc, Fs, N_taps):
     coefficients = np.zeros(N_taps)
 
     for i in range(N_taps):
-        if (i == ((N_taps-1)/2)):
+        if (i == ((N_taps-1) * 0.5)):
             coefficients[i] = normCutoff
 
         else:
             # sinc = sin(x)/x
-            numerator = math.sin(math.pi * normCutoff * (i - ((N_taps-1) / 2)))
-            denominator = math.pi * normCutoff * (i - ((N_taps-1) / 2))
+            denominator = math.pi * normCutoff * (i - ((N_taps-1) * 0.5))
+            numerator = math.sin(denominator)
 
             # normalize coefficients
             coefficients[i] = normCutoff * (numerator/denominator)
@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
     # read the raw IQ data from the recorded file
     # IQ data is assumed to be in 8-bits unsigned (and interleaved)
-    in_fname = "data\samples_u8.raw"
+    in_fname = "../data/samples1.raw"
     raw_data = np.fromfile(in_fname, dtype='uint8')
     print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
     # IQ data is normalized between -1 and +1 in 32-bit float format
@@ -357,11 +357,17 @@ if __name__ == "__main__":
 
     print('Finished processing all the blocks from the recorded I/Q samples')
 
+    # stereoData = np.array([leftData/2, rightData/2])
+
+    # out_fname = "../data/stereoAudio.wav"
+    # wavfile.write(out_fname, int(audio_Fs), np.int16((stereoData)*32767));
+    # print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
+
 	# write audio data to file
-    out_fname1 = "data\leftData.wav"
+    out_fname1 = "../data/leftData.wav"
     wavfile.write(out_fname1, int(audio_Fs), np.int16((leftData/2)*32767))
     print("Written audio samples to \"" + out_fname1 + "\" in signed 16-bit format")
 
-    out_fname2 = "data\ightData.wav"
+    out_fname2 = "../data/rightData.wav"
     wavfile.write(out_fname2, int(audio_Fs), np.int16((rightData/2)*32767))
     print("Written audio samples to \"" + out_fname2 + "\" in signed 16-bit format")
