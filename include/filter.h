@@ -26,4 +26,12 @@ void downsample(std::vector<float> &, const std::vector<float> &, const int);
 
 void upsample(std::vector<float> &, const std::vector<float> &, const int);
 
+void bandpassfilter(std::vector<float> &output, float fb, float fe, float fs, int n_taps);
+
+void fmPLL(std::vector<float> &ncoOut, float freq, float Fs, float nocoScale, float phaseAdjust, float normBandwidth);
+
+void mixer(std::vector<float> &out, std::vector<float> &arr1, std::vector<float> &arr2);
+
+void lrExtraction(std::vector<float> &left, std::vector<float> &right, std::vector<float> monoData, std::vector<float> stereoData);
+
 #endif // DY4_FILTER_H
