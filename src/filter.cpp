@@ -180,3 +180,82 @@ void upsample(std::vector<float> &upsampled, const std::vector<float> &data, con
 		upsampled[i * up_factor] = data[i];
 	}
 }
+
+void bandpassfilter(std::vector<float> &output, float fb, float fe, float fs, int n_taps)
+{
+	float normCent = ((fe + fb) / 2) / (fs / 2);
+	float normPass = (fe - fb) / (fs / 2);
+	output.resize(n_taps - 1, 0.0);
+	float value;
+	for (int i = 0; i < (n_taps)-1; i++)
+	{
+		if (i == ((n_taps - 1) / 2))
+		{
+			output[i] = normPass;
+		}
+		else
+		{
+			value = PI * (normPass / 2) * (i - ((n_taps - 1) / 2));
+			output[i] = normPass * sin(value) / value;
+		}
+		output[i] = output[i] * cos(i * PI * normCent);
+		output[i] = output[i] * std::pow(sin(i * PI / n_taps), 2);
+	}
+}
+
+void fmPLL(std::vector<float> &ncoOut, float freq, float Fs, float nocoScale, float phaseAdjust, float normBandwidth)
+{
+	float Cp = 2.666;
+	float Ci = 3.555;
+	float Kp = normBandwidth * Cp;
+	float Ki = normBandwidth * normBandwidth * Ci;
+	std::vector<float> pllin;
+	pllin = ncoOut;
+	ncoOut.clear();
+	ncoOut.resize(pllin.size());
+	float integrator = 0.0;
+	float phaseEst = 0.0;
+	float feedbackI = 0.0;
+	float feedbackQ = 0.0;
+	ncoOut[0] = 1.0;
+	float trigOffset = 0.0;
+	float errorI;
+	float errorQ;
+	float errorD;
+	float trigArg;
+	for (int i = 0; i < pllin.size(); i++)
+	{
+		errorI = pllin[i] * feedbackI;
+		errorQ = pllin[i] * (-feedbackQ);
+		errorD = atan2(errorQ, errorI);
+		integrator = integrator + (Ki * errorD);
+		phaseEst = phaseEst + (Kp * errorD) + integrator;
+		trigOffset += 1;
+		trigArg = 2 * PI * (freq / Fs) * (trigOffset) + phaseEst;
+		feedbackI = cos(trigArg);
+		feedbackQ = sin(trigArg);
+		ncoOut[i] = cos(trigArg * nocoScale + phaseAdjust);
+	}
+}
+
+void mixer(std::vector<float> &out, std::vector<float> &arr1, std::vector<float> &arr2)
+{
+	out.clear();
+	for (int i = 0; i < arr1.size(); i++)
+	{
+		out.push_back(arr1[i] * arr2[i]);
+	}
+}
+
+void lrExtraction(std::vector<float> &left, std::vector<float> &right, std::vector<float> monoData, std::vector<float> stereoData)
+{
+	left.clear();
+	right.clear();
+	left.resize(monoData.size());
+	right.resize(monoData.size());
+	for (int i = 0; i < monoData.size(); i++)
+	{
+		left[i] = (monoData[i] + stereoData[i]) / 2;
+		right[i] = (monoData[i] - stereoData[i]) / 2;
+	}
+}
