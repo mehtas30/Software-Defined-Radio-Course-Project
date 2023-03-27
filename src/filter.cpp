@@ -37,8 +37,34 @@ void impulseResponseLPF(std::vector<float> &h, const float Fs, const float Fc, c
 	}
 }
 
-// function to compute the filtered output "y" by doing the convolution
-// of the input data "x" with the impulse response "h" in blocks
+void impulseResponseBPF(std::vector<float> &h, const float fs, const float fb, const float fe, const int num_taps)
+{
+	// allocate memory for the impulse response
+	h.clear(); h.reserve(num_taps); h.resize(num_taps, 0.0);
+	
+	float normCent = (fe + fb) / fs;
+	float normPass = 2 * (fe - fb) / fs;
+
+	for (int i = 0; i < num_taps; i++)
+	{
+		if (i == ((num_taps - 1) / 2))
+		{
+			h[i] = normPass;
+		}
+		else
+		{
+			float denominator = PI * (normPass * 0.5) * (i - ((num_taps - 1) * 0.5));
+
+			h[i] = normPass * sin(denominator) / denominator;
+		}
+		
+		h[i] *= cos(i * PI * normCent);
+		h[i] *= std::pow(sin(i * PI / num_taps), 2);
+	}
+}
+
+// OBSOLETE FUNCTION
+/*
 void LPFilter(std::vector<float> &output,
 			std::vector<float> &state,
 			const std::vector<float> &input,
@@ -85,7 +111,9 @@ void LPFilter(std::vector<float> &output,
 		indexState++;
 	}
 }
+*/// OBSOLETE FUNCTION
 
+// does upsampling, convolution, and downsampling
 void resample(std::vector<float> &output,
 			std::vector<float> &state,
 			const std::vector<float> &input,
@@ -155,6 +183,8 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 	}
 }
 
+// OBSOLETE FUNCTIONS
+/*
 void downsample(std::vector<float> &downsampled, const std::vector<float> &data, const int down_factor) {
 
 	downsampled.clear(); downsampled.reserve(data.size());
@@ -165,7 +195,9 @@ void downsample(std::vector<float> &downsampled, const std::vector<float> &data,
 		//std::cerr << "c1" << std::endl;
 	}
 }
+*/
 
+/*
 void upsample(std::vector<float> &upsampled, const std::vector<float> &data, const int up_factor){
 	upsampled.clear();
 	if (up_factor == 1) {
@@ -180,30 +212,9 @@ void upsample(std::vector<float> &upsampled, const std::vector<float> &data, con
 		upsampled[i * up_factor] = data[i];
 	}
 }
+*/
 
-void bandpassfilter(std::vector<float> &output, float fb, float fe, float fs, int n_taps)
-{
-	float normCent = ((fe + fb) / 2) / (fs / 2);
-	float normPass = (fe - fb) / (fs / 2);
-	output.resize(n_taps - 1, 0.0);
-	float value;
-	for (int i = 0; i < (n_taps)-1; i++)
-	{
-		if (i == ((n_taps - 1) / 2))
-		{
-			output[i] = normPass;
-		}
-		else
-		{
-			value = PI * (normPass / 2) * (i - ((n_taps - 1) / 2));
-			output[i] = normPass * sin(value) / value;
-		}
-		output[i] = output[i] * cos(i * PI * normCent);
-		output[i] = output[i] * std::pow(sin(i * PI / n_taps), 2);
-	}
-}
-
-void fmPLL(std::vector<float> &ncoOut, float freq, float Fs, float nocoScale, float phaseAdjust, float normBandwidth)
+void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const float nocoScale, const float phaseAdjust, const float normBandwidth)
 {
 	float Cp = 2.666;
 	float Ci = 3.555;
@@ -211,8 +222,10 @@ void fmPLL(std::vector<float> &ncoOut, float freq, float Fs, float nocoScale, fl
 	float Ki = normBandwidth * normBandwidth * Ci;
 	std::vector<float> pllin;
 	pllin = ncoOut;
-	ncoOut.clear();
-	ncoOut.resize(pllin.size());
+	
+	ncoOut.clear(); 
+	ncoOut.reserve(pllin.size()); ncoOut.resize(pllin.size());
+	
 	float integrator = 0.0;
 	float phaseEst = 0.0;
 	float feedbackI = 0.0;
@@ -223,6 +236,7 @@ void fmPLL(std::vector<float> &ncoOut, float freq, float Fs, float nocoScale, fl
 	float errorQ;
 	float errorD;
 	float trigArg;
+	
 	for (int i = 0; i < pllin.size(); i++)
 	{
 		errorI = pllin[i] * feedbackI;
@@ -238,24 +252,26 @@ void fmPLL(std::vector<float> &ncoOut, float freq, float Fs, float nocoScale, fl
 	}
 }
 
-void mixer(std::vector<float> &out, std::vector<float> &arr1, std::vector<float> &arr2)
+void mixer(std::vector<float> &output, const std::vector<float> &arr1, const std::vector<float> &arr2)
 {
-	out.clear();
+	output.clear(); output.reserve(arr1.size());
+	
 	for (int i = 0; i < arr1.size(); i++)
 	{
-		out.push_back(arr1[i] * arr2[i]);
+		output.push_back(arr1[i] * arr2[i]);
 	}
 }
 
-void lrExtraction(std::vector<float> &left, std::vector<float> &right, std::vector<float> monoData, std::vector<float> stereoData)
+void LRExtraction(std::vector<float> &left, std::vector<float> &right, const std::vector<float> &mono_data, const std::vector<float> &stereo_data)
 {
+	int size = mono_data.size();
 	left.clear();
 	right.clear();
-	left.resize(monoData.size());
-	right.resize(monoData.size());
-	for (int i = 0; i < monoData.size(); i++)
+	left.reserve(size); left.resize(size);
+	right.reserve(size); right.resize(size);
+	for (int i = 0; i < size; i++)
 	{
-		left[i] = (monoData[i] + stereoData[i]) / 2;
-		right[i] = (monoData[i] - stereoData[i]) / 2;
+		left[i] = (mono_data[i] + stereo_data[i]) * 0.5;
+		right[i] = (mono_data[i] - stereo_data[i]) * 0.5;
 	}
 }

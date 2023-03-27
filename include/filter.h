@@ -16,14 +16,22 @@ Ontario, Canada
 // declaration of a function prototypes
 void impulseResponseLPF(std::vector<float> &, const float, const float, const int, const int);
 
-void LPFilter(std::vector<float> &, std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
+void impulseResponseBPF(std::vector<float> &, const float, const float, const float, const int);
 
-void resample(std::vector<float> &output, std::vector<float> &state, const std::vector<float> &input, const std::vector<float> &coeff, const int up_factor, const int down_factor);
+//void LPFilter(std::vector<float> &, std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
+
+void resample(std::vector<float> &, std::vector<float> &, const std::vector<float> &, const std::vector<float> &, const int, const int);
 
 void FMDemod(std::vector<float> &, float &, float &, const std::vector<float> &, const std::vector<float> &);
 
-void downsample(std::vector<float> &, const std::vector<float> &, const int);
+//void downsample(std::vector<float> &, const std::vector<float> &, const int);
 
-void upsample(std::vector<float> &, const std::vector<float> &, const int);
+//void upsample(std::vector<float> &, const std::vector<float> &, const int);
+
+void PLL(std::vector<float> &, const float, const float, const float, const float, const float);
+
+void mixer(std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
+
+void LRExtraction(std::vector<float> &, std::vector<float> &, const std::vector<float> &, const std::vector<float> &);
 
 #endif // DY4_FILTER_H

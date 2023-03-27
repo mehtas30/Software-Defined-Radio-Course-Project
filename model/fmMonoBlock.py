@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
 	# read the raw IQ data from the recorded file
 	# IQ data is assumed to be in 8-bits unsigned (and interleaved)
-	in_fname = "data\samples_u8.raw"
+	in_fname = "../data/samples_u8.raw"
 	raw_data = np.fromfile(in_fname, dtype='uint8')
 	print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
 	# IQ data is normalized between -1 and +1 in 32-bit float format
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
 	# select a block_size that is a multiple of KB
 	# and a multiple of decimation factors
-	block_size = 1024 * rf_decim * 5 * 2
+	block_size = 128 * rf_decim * audio_decim* 2
 	block_count = 0
 
 	# coefficients for IQ -> IF LPFs, Fc = 100kHz
@@ -232,13 +232,18 @@ if __name__ == "__main__":
 		i_ds = downsample(i_filt, rf_decim)
 		q_ds = downsample(q_filt, rf_decim)
 											
-
+		
 		# FM demodulator
 		# you will need to implement your own FM demodulation based on:
 		# https://www.embedded.com/dsp-tricks-frequency-demodulation-algorithms/
 		# see more comments on fmSupportLib.py - take particular notice that
 		# you MUST have also "custom" state-saving for your own FM demodulator
 		fm_demod, prevI, prevQ = myDemod(i_ds, q_ds, prevI, prevQ)
+		
+		# if (block_count == 0):
+			# print('fm_demod=')
+			# for i in range(30):
+				# print(fm_demod[i])
 		
 		# extract mono audio data through filtering, and downsample to 48kS/s
 		fm_demod_us = upsample(fm_demod, audio_interp)
@@ -248,6 +253,11 @@ if __name__ == "__main__":
 
 		# downsample audio data
 		audio_block = downsample(audio_filt, audio_decim)
+		
+		if (block_count == 0):
+			print('audio_block=')
+			for i in range(30):
+				print(audio_block[i])
 
 		# concatenate the most recently processed audio_block
 		# to the previous blocks stored already in audio_data
