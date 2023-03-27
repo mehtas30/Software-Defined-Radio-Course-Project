@@ -64,7 +64,7 @@ void impulseResponseBPF(std::vector<float> &h, const float fs, const float fb, c
 }
 
 // OBSOLETE FUNCTION
-/*
+
 void LPFilter(std::vector<float> &output,
 			std::vector<float> &state,
 			const std::vector<float> &input,
@@ -111,7 +111,7 @@ void LPFilter(std::vector<float> &output,
 		indexState++;
 	}
 }
-*/// OBSOLETE FUNCTION
+
 
 // does upsampling, convolution, and downsampling
 void resample(std::vector<float> &output,
@@ -184,7 +184,7 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 }
 
 // OBSOLETE FUNCTIONS
-/*
+
 void downsample(std::vector<float> &downsampled, const std::vector<float> &data, const int down_factor) {
 
 	downsampled.clear(); downsampled.reserve(data.size());
@@ -195,7 +195,7 @@ void downsample(std::vector<float> &downsampled, const std::vector<float> &data,
 		//std::cerr << "c1" << std::endl;
 	}
 }
-*/
+
 
 /*
 void upsample(std::vector<float> &upsampled, const std::vector<float> &data, const int up_factor){

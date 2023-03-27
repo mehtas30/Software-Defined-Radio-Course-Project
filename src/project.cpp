@@ -215,12 +215,12 @@ int main(int argc, char* argv[])
 		// FM demodulation
 		FMDemod(demod_data, prev_i, prev_q, i_ds, q_ds);
 		
-		//if (block_count == 0){
-			//std::cerr << "demod_data=" << std::endl;
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << demod_data[i] << "\n";
-			//}
-		//}
+		if (block_count == 0){
+			std::cerr << "demod_data=" << std::endl;
+			for (int i = 0; i < 30; i++){
+				std::cerr << demod_data[i] << "\n";
+			}
+		}
 		
 		////////////////////////////////RF FRONT END////////////////////////////
 		
