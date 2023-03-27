@@ -161,10 +161,8 @@ void stereo(int rf_fs, int rf_fc, int rf_taps, int rf_decim, int if_fs,
 	std::vector<float> fm_demod;
 	// extract coeffs and state
 	std::vector<float> channelExtractCoeff;
-	std::vector<float> channelExtractState;
 	// recovery
 	std::vector<float> carrierRecovCoeff;
-	std::vector<float> carrierRecovState;
 	// process
 	std::vector<float> mixerdata;
 	std::vector<float> downsampledStereo;
@@ -202,7 +200,7 @@ void stereo(int rf_fs, int rf_fc, int rf_taps, int rf_decim, int if_fs,
 		resample(channelExtractData, channelExtractState, fm_demod, channelExtractCoeff, 1, 1);
 		// recovery
 		bandpassfilter(carrierRecovCoeff, 18500, 19500, 240000, audio_taps);
-		LPFilter(carrierRecoveryData, carrierRecovState, fm_demod, carrierRecovCoeff);
+		LPFilter(carrierRecoveryData, carrierRecoveryState, fm_demod, carrierRecovCoeff);
 		fmPLL(carrierRecoveryData, 19000, 240000, 2, 0, 0.01);
 		resample(carrierRecoveryData, carrierRecoveryState, fm_demod, carrierRecovCoeff, 1, 1);
 		// mono
