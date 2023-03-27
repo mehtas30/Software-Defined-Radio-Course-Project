@@ -117,7 +117,134 @@ void fmMonoProcessing(	int rf_fs, 	  int rf_fc,    int rf_taps,    int rf_decim,
 		fwrite(&audio_data[0], sizeof(short int), audio_data.size(), stdout);
 	}
 }
+void stereo(int rf_fs, int rf_fc, int rf_taps, int rf_decim, int if_fs,
+			int audio_fs, int audio_fc, int audio_taps, int audio_decim, int audio_interp,
+			std::vector<float> &processed_data,
+			int block_size, int block_count)
+{
+	std::cerr << "rf_fs=" << rf_fs << "\nrf_fc=" << rf_fc << "\nrf_taps=" << rf_taps << "\nrf_decim=" << rf_decim << "\nif_fs=" << if_fs << "\naudio_fs=" << audio_fs << "\naudio_fc=" << audio_fc << "\naudio_taps=" << audio_taps << "\naudio_decim=" << audio_decim << "\naudio_interp=" << audio_interp << "\nblock_size=" << block_size << "\nblock_count=" << block_count << std::endl;
+	// coefficients for IQ -> IF LPFs, Fc = 100kHz
+	std::vector<float> rf_coeff;
+	impulseResponseLPF(rf_coeff, rf_fs, rf_fc, rf_taps, 1);
+	// coefficients for IF -> audio LPF, Fc = 16kHz
+	std::vector<float> mono_coeff;
+	impulseResponseLPF(mono_coeff, 240000, audio_fc, audio_taps, 1);
+	// state saving for extracting FM band, Fc=100Khz
+	std::vector<float> state_i_lpf_100k(rf_taps - 1, 0.0);
+	std::vector<float> state_q_lpf_100k(rf_taps - 1, 0.0);
+	// state saving for FM demod
+	float prev_i = 0.0;
+	float prev_q = 0.0;
+	// extracting mono state saving
+	std::vector<float> monoState(audio_taps - 1, 0.0);
+	std::vector<float> channelExtractState(audio_taps - 1, 0.0);
+	std::vector<float> carrierRecoveryState(audio_taps - 1, 0.0);
+	// audio buffer that stores all the audio blocks
+	std::vector<float> carrierRecoveryData;
+	std::vector<float> channelExtractData;
+	std::vector<float> monoData;
+	std::vector<float> leftData;
+	std::vector<float> rightData;
+	// split IQ block into I and Q
+	std::vector<float> i_block;
+	std::vector<float> q_block;
+	i_block.reserve(block_size);
+	i_block.resize(block_size);
+	q_block.reserve(block_size);
+	q_block.resize(block_size);
 
+	// downsampled I and Q
+	std::vector<float> i_ds;
+	std::vector<float> q_ds;
+
+	// demodulated data
+	std::vector<float> fm_demod;
+	// extract coeffs and state
+	std::vector<float> channelExtractCoeff;
+	std::vector<float> channelExtractState;
+	// recovery
+	std::vector<float> carrierRecovCoeff;
+	std::vector<float> carrierRecovState;
+	// process
+	std::vector<float> mixerdata;
+	std::vector<float> downsampledStereo;
+	std::vector<float> upsampledStereo;
+	std::vector<float> leftNewData;
+	std::vector<float> rightNewData;
+	for (;; block_count++)
+	{
+		// input
+		std::vector<float> iq_block(block_size * 2);
+		readStdinBlockData(block_size * 2, block_count, iq_block);
+		if ((std::cin.rdstate()) != 0)
+		{
+			std::cerr << "End of input stream reached!" << std::endl;
+			exit(1);
+		}
+		std::cerr << "Read block " << block_count << std::endl;
+
+		// separate iq_block into I and Q
+		int j = 0;
+		for (int i = 0; i < (int)iq_block.size(); i += 2)
+		{
+			i_block[j] = iq_block[i];
+			q_block[j] = iq_block[i + 1];
+			j++;
+		};
+		// resampling filter (2.4MS/s -> 240kS/s, 0 - 100kHz)
+		resample(i_ds, state_i_lpf_100k, i_block, rf_coeff, 1, rf_decim);
+		resample(q_ds, state_q_lpf_100k, q_block, rf_coeff, 1, rf_decim);
+		// Fm demod
+		FMDemod(fm_demod, prev_i, prev_q, i_ds, q_ds);
+		// stereo extract
+		bandpassfilter(channelExtractCoeff, 22000.0, 45000.0, 240000.0, audio_taps); // why error
+		LPFilter(channelExtractData, channelExtractState, fm_demod, channelExtractCoeff);
+		resample(channelExtractData, channelExtractState, fm_demod, channelExtractCoeff, 1, 1);
+		// recovery
+		bandpassfilter(carrierRecovCoeff, 18500, 19500, 240000, audio_taps);
+		LPFilter(carrierRecoveryData, carrierRecovState, fm_demod, carrierRecovCoeff);
+		fmPLL(carrierRecoveryData, 19000, 240000, 2, 0, 0.01);
+		resample(carrierRecoveryData, carrierRecoveryState, fm_demod, carrierRecovCoeff, 1, 1);
+		// mono
+		resample(monoData, monoState, fm_demod, mono_coeff, audio_interp, audio_decim);
+		// process
+		mixer(mixerdata, channelExtractData, carrierRecoveryData);
+		downsample(downsampledStereo, mixerdata, audio_decim);
+		upsample(upsampledStereo, downsampledStereo, audio_interp);
+		lrExtraction(leftNewData, rightNewData, monoData, upsampledStereo);
+		leftData.insert(leftData.end(), leftNewData.begin(), leftNewData.end());
+		rightData.insert(rightData.end(), rightNewData.begin(), rightNewData.end());
+	}
+	// writing by block to stdout
+	// std::cerr << "Writing to stdout..." << std::endl;
+	std::vector<short int> audioleft_data;
+	audioleft_data.reserve(leftData.size());
+	audioleft_data.resize(leftData.size(), 0.0);
+	std::vector<short int> audioright_data;
+	audioright_data.reserve(rightData.size());
+	audioright_data.resize(rightData.size(), 0.0);
+	for (unsigned int k = 0; k < leftData.size(); k++)
+	{
+		if (std::isnan(leftData[k]))
+			audioleft_data[k] = 0;
+		// prepare a block of audio data to be redirected to stdout at once
+		else
+			audioleft_data[k] = static_cast<short int>(leftData[k] * 16384);
+	}
+
+	fwrite(&audioright_data[0], sizeof(short int), audioright_data.size(), stdout);
+
+	for (unsigned int k = 0; k < rightData.size(); k++)
+	{
+		if (std::isnan(rightData[k]))
+			audioright_data[k] = 0;
+		// prepare a block of audio data to be redirected to stdout at once
+		else
+			audioright_data[k] = static_cast<short int>(rightData[k] * 16384);
+	}
+
+	fwrite(&audioright_data[0], sizeof(short int), audioright_data.size(), stdout);
+}
 int main(int argc, char* argv[])
 {
 	// binary files can be generated through the
