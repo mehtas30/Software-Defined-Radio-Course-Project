@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
 	
 	std::vector<float> mono_data;
 	std::vector<float> left_right_data;
-	std::vector<float> audio;
+	std::vector<short int> audio;
 	
 	for (;; block_count++){
 		
