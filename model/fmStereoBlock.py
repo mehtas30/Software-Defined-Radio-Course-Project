@@ -180,12 +180,12 @@ def monoProcess(fm_demod, monoCoeff, audio_state, audioDecim, audio_data):
     audio_block = downsample(audio_filt, audioDecim)
 
     audio_data = audio_block
+    
     #print(len(audio_block))
     #audio_data = np.concatenate([audio_data, audio_block])
-
-    return audio_data, audio_state
+    return audio_block, audio_state
     
-def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, upFactor, downFactor):
+def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, upFactor, downFactor, stereoData):
     #print(len(leftData))
     mixerData = mixer(channelExtractData, carrierRecoveryData)
     #print(len(mixerData))
@@ -195,6 +195,7 @@ def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, r
     #print("downsample")
     #print(len(downSampled))
     upSampled = upsample(downSampled, upFactor)
+    stereoData = np.concatenate([stereoData, upSampled])
     #upSampled = upsample(mixerData, upFactor)
     #print("upsample")
     #print(len(upSampled))
@@ -203,7 +204,12 @@ def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, r
     leftData = np.concatenate([leftData, leftNewData])
     rightData = np.concatenate([rightData, rightNewData])
 
-    return leftData, rightData
+    return leftData, rightData, stereoData
+
+def padData(numTaps, data):
+    for i in range (50):
+        data[i] = 0
+    return data
 
  
 rf_Fs = 2.4e6
@@ -262,7 +268,7 @@ if __name__ == "__main__":
 
     # read the raw IQ data from the recorded file
     # IQ data is assumed to be in 8-bits unsigned (and interleaved)
-    in_fname = "../data/samples1.raw"
+    in_fname = "data\stereo_l0_r9.raw"
     raw_data = np.fromfile(in_fname, dtype='uint8')
     print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
     # IQ data is normalized between -1 and +1 in 32-bit float format
@@ -303,6 +309,8 @@ if __name__ == "__main__":
     monoData = np.array([])
     leftData = np.array([])
     rightData = np.array([])
+    monoExtraData = np.array([])
+    stereoData = np.array([])
     
 
     # if the number of samples in the last block is less than the block size
@@ -348,12 +356,20 @@ if __name__ == "__main__":
         #print("this is carrier")
         #print(carrierRecoveryData)
         monoData, monoState = monoProcess(fm_demod_us, monoCoeff, monoState, audio_decim, monoData)
+
+        #monoData = padData(audio_taps, monoData)
+
+        monoExtraData = np.concatenate([monoExtraData, monoData])
         #print("This is mono")
     
         
-        leftData, rightData = stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, audio_interp, audio_decim)
+        leftData, rightData, stereoData = stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, audio_interp, audio_decim, stereoData)
 
         block_count += 1
+
+        if (block_count == 100):
+            break
+        
 
     print('Finished processing all the blocks from the recorded I/Q samples')
 
@@ -364,10 +380,10 @@ if __name__ == "__main__":
     # print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
 
 	# write audio data to file
-    out_fname1 = "../data/leftData.wav"
+    out_fname1 = "data\leftData1.wav"
     wavfile.write(out_fname1, int(audio_Fs), np.int16((leftData/2)*32767))
     print("Written audio samples to \"" + out_fname1 + "\" in signed 16-bit format")
 
-    out_fname2 = "../data/rightData.wav"
+    out_fname2 = "data\ightData1.wav"
     wavfile.write(out_fname2, int(audio_Fs), np.int16((rightData/2)*32767))
     print("Written audio samples to \"" + out_fname2 + "\" in signed 16-bit format")
