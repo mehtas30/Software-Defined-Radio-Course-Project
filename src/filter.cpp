@@ -121,29 +121,32 @@ void resample(std::vector<float> &output,
 			const int up_factor,
 			const int down_factor)
 {
-	int taps = (int)coeff.size();
-	int block_size = (int)input.size();
-	int state_size = (int)state.size();
+	int taps = coeff.size();
+	int block_size = input.size();
+	int state_size = state.size();
 
-	//std::cerr << "taps=" << taps << ", block size=" << block_size << std::endl;
+	//std::cerr << "taps=" << taps << ", block size=" << block_size << ", up=" << up_factor << ", down=" << down_factor << std::endl;
 	// allocate memory for the output (filtered) data
 	output.clear(); 
-	output.reserve(block_size * up_factor / down_factor);
-	output.resize(block_size * up_factor / down_factor, 0.0);
+	output.reserve(int(block_size * up_factor / down_factor));
+	output.resize(int(block_size * up_factor / down_factor), 0.0);
 	
 	for (int n = 0; n < output.size(); n++){
 		int phase = (n * down_factor) % up_factor;
 		
+		output[n] = 0.0;
+		
 		for (int k = phase; k < taps; k += up_factor){
-			int j = int(((down_factor * n) - k) / up_factor);
+			int j = int((n * down_factor - k) / up_factor);
 			
-			if ((j >= 0) && (j < block_size)){
+			if (j >= 0){
 				output[n] += coeff[k] * input[j];
 			} 
 			else{
 				output[n] += coeff[k] * state[state_size + j];
 			}
 		}
+		//output[n] *= up_factor;
 	}
 	
 	// state saving
@@ -175,6 +178,9 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 			// i * dq/dt - q * di/dt
 			float numerator = (curr_i * deriv_q) - (curr_q * deriv_i);
 			fm_demod.push_back(numerator / denominator);
+		}
+		else{
+			fm_demod.push_back(0.0);
 		}
 
 		// state saving
