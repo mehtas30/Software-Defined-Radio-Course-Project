@@ -23,7 +23,7 @@ void monoProcessing(std::vector<float> &mono_data,
 {
 				
 	// resampling filter (240kS/s -> 48kS/s, 0 - 16kHz)
-	resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim);
+	//resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim);
 
 }
 
@@ -49,15 +49,15 @@ void stereoProcessing(std::vector<float> &left_right_data, const std::vector<flo
 	
 
 	// stereo channel extraction
-	resample(channel_data, channel_state, demod_data, channel_coeff, 1, 1);
+	//resample(channel_data, channel_state, demod_data, channel_coeff, 1, 1);
 	
 	// stereo carrier recovery
-	resample(carrier_data, carrier_state, demod_data, carrier_coeff, 1, 1);
+	//resample(carrier_data, carrier_state, demod_data, carrier_coeff, 1, 1);
 	PLL(carrier_data, 19000, if_fs, 2, 0, 0.01);
 	
 	// stereo processing
 	mixer(mixer_data, channel_data, carrier_data);
-	resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim);
+	//resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim);
 	
 	// at this point stereo_data contains L - R
 	
@@ -226,12 +226,12 @@ int main(int argc, char* argv[])
 		
 		resample(mono_data, audio_state, demod_data, audio_coeff, 1, audio_decim);
 		
-		//if (block_count == 0){
-			//std::cerr << "mono_data=" << std::endl;
-			//for (int i = 0; i < 30; i++){
-				//std::cerr << mono_data[i] << "\n";
-			//}
-		//}
+		if (block_count == 5){
+			std::cerr << "mono_data=" << std::endl;
+			for (int i = 0; i < 30; i++){
+				std::cerr << mono_data[i] << "\n";
+			}
+		}
 
 		//monoProcessing(mono_data, audio_coeff, audio_state, demod_data, audio_decim, audio_interp);
 		

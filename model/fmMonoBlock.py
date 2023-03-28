@@ -254,7 +254,7 @@ if __name__ == "__main__":
 		# downsample audio data
 		audio_block = downsample(audio_filt, audio_decim)
 		
-		if (block_count == 0):
+		if (block_count == 5):
 			print('audio_block=')
 			for i in range(30):
 				print(audio_block[i])
