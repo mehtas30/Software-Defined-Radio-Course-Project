@@ -23,7 +23,7 @@ void monoProcessing(std::vector<float> &mono_data,
 {
 				
 	// resampling filter (240kS/s -> 48kS/s, 0 - 16kHz)
-	resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim, block_count);
+	resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim);
 
 }
 
@@ -47,7 +47,7 @@ void stereoProcessing(std::vector<float> &left_data, std::vector<float> &right_d
 	std::vector<float> stereo_data;
 
 	// stereo channel extraction
-	resample(channel_data, channel_state, demod_data, channel_coeff, 1, 1, block_count);\
+	resample(channel_data, channel_state, demod_data, channel_coeff, 1, 1);\
 	
 	//if (block_count < 3){
 		//std::cerr << "channel data (" << channel_data.size() << ")" << std::endl;
@@ -73,7 +73,7 @@ void stereoProcessing(std::vector<float> &left_data, std::vector<float> &right_d
 	
 	
 	// stereo carrier recovery
-	resample(carrier_data, carrier_state, demod_data, carrier_coeff, 1, 1, block_count);
+	resample(carrier_data, carrier_state, demod_data, carrier_coeff, 1, 1);
 	PLL(carrier_data, 19000, if_fs, 2, 0, 0.01);
 	
 	// stereo processing
@@ -87,7 +87,7 @@ void stereoProcessing(std::vector<float> &left_data, std::vector<float> &right_d
 		//}
 	//}
 
-	resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim, block_count);
+	resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim);
 
 	
 	// at this point stereo_data contains L - R
@@ -246,8 +246,8 @@ int main(int argc, char* argv[])
 		
 		
 		// resampling filter (2.4MS/s -> 240kS/s, 0 - 100kHz)
-		resample(i_ds, state_i_lpf_100k, i_block, rf_coeff, 1, rf_decim, block_count);
-		resample(q_ds, state_q_lpf_100k, q_block, rf_coeff, 1, rf_decim, block_count);
+		resample(i_ds, state_i_lpf_100k, i_block, rf_coeff, 1, rf_decim);
+		resample(q_ds, state_q_lpf_100k, q_block, rf_coeff, 1, rf_decim);
 		
 		// FM demodulation
 		FMDemod(demod_data, prev_i, prev_q, i_ds, q_ds);

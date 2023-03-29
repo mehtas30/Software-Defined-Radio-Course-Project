@@ -23,7 +23,7 @@ int generated_elems = 0;
 
 void RF_thread(std::vector<float> &mono_data,std::vector<float> iq_block,std::vector<float> i_ds, std::vector<float> q_ds, 	std::vector<float> i_block, std::vector<float> q_block,	std::vector<float> state_i_lpf_100k,std::vector<float> state_q_lpf_100k,std::vector<float> rf_coeff,std::vector<float> demod_data,	float prev_i,float prev_q, int block_count){
 		// separate iq_block into I and Q
-        int rf_decim = 9;
+        int rf_decim = 10;
 		int j = 0;
 		for (int i = 0; i < (int)iq_block.size(); i+=2){
 			i_block[j] = iq_block[i];
@@ -120,8 +120,11 @@ void my_producer(std::queue<std::vector<int>> &my_queue,  \
 	std::mutex& my_mutex, \
 	std::condition_variable& my_cvar)
 {
-	while (generated_elems < TOTAL_ELEMS)
+	while (true)
 	{
+        if ((std::cin.rdstate())!=0){
+            break;
+        }
 		std::vector<int> elem;
 		RF_thread();
 		generated_elems++;
@@ -160,15 +163,14 @@ void my_consume(std::queue<std::vector<int>> &my_queue,  \
 int main(int argc, char* argv[])
 {
 	srand(RANDOM_SEED);
-    	// binary files can be generated through the
-	// Python models from the "../model/" sub-folder
-		// binary files can be generated through the
+	// binary files can be generated through the
 	// Python models from the "../model/" sub-folder
 	const std::string in_fname = "../data/fm_demod_10.bin";
 	std::vector<float> bin_data;
 	readBinData(in_fname, bin_data);
 
 	int mode = 0;
+	int channels = 2;
 
 	if (argc < 2){
 		std::cerr << "Operating in default mode 0" << std::endl;
@@ -192,19 +194,21 @@ int main(int argc, char* argv[])
 
 	int rf_fs = 2400000;
 	int rf_fc = 100000;
-	int rf_taps = 151;
+	int rf_taps = 51;
 	int rf_decim = 10;
 	
 	int if_fs = 240000;
 
 	int audio_fs = 48000;
 	int audio_fc = 16000;
-	int audio_taps = 101;
+	int audio_taps = 51;
 	int audio_decim = 5;
 	int audio_interp = 1;
 
 	int block_size = 128 * rf_decim * audio_decim * 2;
 	int block_count = 0;
+	
+	int mono_delay = (audio_taps - 1) * 0.5;
 
 	if (mode == 0){
 		rf_fs = 2400000; rf_decim = 10;
@@ -232,6 +236,7 @@ int main(int argc, char* argv[])
 	}
 	
 	// begin processing
+	
 	// FM band extraction
 	std::vector<float> iq_block(block_size);
 	
@@ -273,8 +278,12 @@ int main(int argc, char* argv[])
 	std::vector<float> audio_coeff;
 	impulseResponseLPF(audio_coeff, if_fs, audio_fc, audio_taps, audio_interp);
 	
+	std::vector<float> mono_temp;
 	std::vector<float> mono_data;
-	std::vector<float> left_right_data;
+	std::vector<float> mono_state(mono_delay, 0.0);
+	
+	std::vector<float> left_data;
+	std::vector<float> right_data;
 	std::vector<short int> audio;
 	
 	for (;; block_count++){
@@ -284,7 +293,8 @@ int main(int argc, char* argv[])
 			std::cerr << "End of input stream reached!" << std::endl;
 			exit(1);
 		}
-		std::cerr << "Read block " << block_count << std::endl;
+		//std::cerr << "Read block " << block_count << std::endl;
+		
 	
 	std::queue<std::vector<int>> my_queue;
 	std::mutex my_mutex;
