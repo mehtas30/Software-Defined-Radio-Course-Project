@@ -23,78 +23,44 @@ void monoProcessing(std::vector<float> &mono_data,
 {
 				
 	// resampling filter (240kS/s -> 48kS/s, 0 - 16kHz)
-	resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim, block_count);
+	resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim);
 
 }
 
 
-void stereoProcessing(std::vector<float> &left_data, std::vector<float> &right_data, 
-					const std::vector<float> &mono_data, 
+void stereoProcessing(std::vector<float> &stereo_data, 
 					const std::vector<float> &carrier_coeff, std::vector<float> &carrier_state,
 					const std::vector<float> &channel_coeff, std::vector<float> &channel_state,
 					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
 					const std::vector<float> &demod_data,
-					const int audio_decim, const int audio_interp, const int if_fs, const int block_count)
+					const int audio_decim, const int audio_interp, const int if_fs, 
+					float &integrator, float &phaseEst, float &feedbackI, float &feedbackQ, float &ncoOut_state, float &trigOffset,
+					const int block_count)
 {
 	// channel extraction
 	std::vector<float> channel_data;
+	std::vector<float> channel_temp;
 	
 	// carrier recovery
 	std::vector<float> carrier_data;
 	
 	// stereo processing
 	std::vector<float> mixer_data;
-	std::vector<float> stereo_data;
 
 	// stereo channel extraction
-	resample(channel_data, channel_state, demod_data, channel_coeff, 1, 1, block_count);\
-	
-	//if (block_count < 3){
-		//std::cerr << "channel data (" << channel_data.size() << ")" << std::endl;
-		//for (int i = 0; i < 10; i++){
-			//std::cerr << channel_data[i] << std::endl;
-		//}
+	resample(channel_data, channel_state, demod_data, channel_coeff, 1, 1);
 
-		//std::cerr << "channel state (" << channel_state.size() << ")" << std::endl;
-		//for (int i = 0; i < 10; i++){
-			//std::cerr << channel_state[i] << std::endl;
-		//}
-
-		//std::cerr << "demod (" << demod_data.size() << ")" << std::endl;
-		//for (int i = demod_data.size() - (channel_coeff.size() - 1); i < demod_data.size() - (channel_coeff.size() - 1) + 10; i++){
-			//std::cerr << demod_data[i] << std::endl;
-		//}
-
-		//std::cerr << "channel coeff (" << channel_coeff.size() << ")" << std::endl;
-		//for (int i = 0; i < 10; i++){
-			//std::cerr << channel_coeff[i] << std::endl;
-		//}
-	//}
-	
-	
 	// stereo carrier recovery
-	resample(carrier_data, carrier_state, demod_data, carrier_coeff, 1, 1, block_count);
-	PLL(carrier_data, 19000, if_fs, 2, 0, 0.01);
+	resample(carrier_data, carrier_state, demod_data, carrier_coeff, 1, 1);
+	PLL(carrier_data, 19000, if_fs, 2, 0, 0.01, integrator, phaseEst, feedbackI, feedbackQ, ncoOut_state, trigOffset);
 	
 	// stereo processing
 	mixer(mixer_data, channel_data, carrier_data);
-
 	
-	//if (block_count < 3){
-		//std::cerr << "mixer (" << mixer_data.size() << ")" << std::endl;
-		//for (int i = 0; i < 10; i++){
-			//std::cerr << mixer_data[i] << std::endl;
-		//}
-	//}
-
-	resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim, block_count);
-
 	
-	// at this point stereo_data contains L - R
-	
-	// stereo combiner
-	LRExtraction(left_data, right_data, mono_data, stereo_data);
 
+	// 16kHz filter
+	resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim);
 }
 
 
@@ -106,7 +72,7 @@ int main(int argc, char* argv[])
 	std::vector<float> bin_data;
 	readBinData(in_fname, bin_data);
 
-	int mode = 0;
+	int mode = 2;
 	int channels = 2;
 
 	if (argc < 2){
@@ -135,6 +101,8 @@ int main(int argc, char* argv[])
 	int rf_decim = 10;
 	
 	int if_fs = 240000;
+	int bp_fs = 240000;
+	int bp_taps = 51;
 
 	int audio_fs = 48000;
 	int audio_fc = 16000;
@@ -142,24 +110,27 @@ int main(int argc, char* argv[])
 	int audio_decim = 5;
 	int audio_interp = 1;
 
-	int block_size = 128 * rf_decim * audio_decim * 2;
+	int block_size = 512 * rf_decim * audio_decim * 2;
 	int block_count = 0;
 	
-	int mono_delay = (audio_taps - 1) * 0.5;
+	int mono_delay = 5;
 
 	if (mode == 0){
 		rf_fs = 2400000; rf_decim = 10;
 		if_fs = 240000;
+		bp_fs = 240000;
 		audio_fs = 48000; audio_decim = 5;
 	}
 	else if (mode == 1){ 
 		rf_fs = 1152000; rf_decim = 4;
 		if_fs = 288000;
+		bp_fs = 288000;
 		audio_fs = 48000; audio_decim = 4;
 	}
 	else if (mode == 2){ 
 		rf_fs = 2400000; rf_decim = 10;
 		if_fs = 240000;
+		bp_fs = 240000;
 		audio_fs = 44100; audio_decim = 800; audio_interp = 147;
 		audio_taps *= audio_interp;
 		if_fs *= audio_interp;
@@ -167,6 +138,7 @@ int main(int argc, char* argv[])
 	else if (mode == 3){ 
 		rf_fs = 2304000; rf_decim = 9;
 		if_fs = 256000;
+		bp_fs = 256000;
 		audio_fs = 44100; audio_decim = 2560; audio_interp = 441;
 		audio_taps *= audio_interp;
 		if_fs *= audio_interp;
@@ -199,15 +171,23 @@ int main(int argc, char* argv[])
 	
 	// stereo channel extraction
 	std::vector<float> channel_state(audio_taps-1, 0.0);
+	float channel_state2 = 0;
 	// coefficients for stereo channel extraction, 22kHz to 54kHz
 	std::vector<float> channel_coeff;
-	impulseResponseBPF(channel_coeff, if_fs, 22000.0, 54000.0, audio_taps);
+	impulseResponseBPF(channel_coeff, bp_fs, 22000.0, 54000.0, bp_taps);
 	
 	// stereo carrier recovery 
 	std::vector<float> carrier_state(audio_taps-1, 0.0);
 	// coefficients for stereo carrier recovery, 18.5kHz to 19.5kHz
 	std::vector<float> carrier_coeff;
-	impulseResponseBPF(carrier_coeff, if_fs, 18500, 19500, audio_taps);
+	impulseResponseBPF(carrier_coeff, bp_fs, 18500, 19500, bp_taps);
+	// PLL state saving
+	float integrator = 0.0;
+	float phaseEst = 0.0;
+	float feedbackI = 1.0;
+	float feedbackQ = 0.0;
+	float trigOffset = 0.0;
+	float ncoOut_state = 1.0;
 	
 	// state saving for extracting audio (Fc = 16kHz)
 	std::vector<float> audio_state(audio_taps-1, 0.0);
@@ -215,12 +195,16 @@ int main(int argc, char* argv[])
 	std::vector<float> audio_coeff;
 	impulseResponseLPF(audio_coeff, if_fs, audio_fc, audio_taps, audio_interp);
 	
-	std::vector<float> mono_temp;
+	std::vector<float> mono_shift;
 	std::vector<float> mono_data;
 	std::vector<float> mono_state(mono_delay, 0.0);
 	
 	std::vector<float> left_data;
 	std::vector<float> right_data;
+
+	std::vector<float> stereo_data;
+
+	
 	std::vector<short int> audio;
 	
 	for (;; block_count++){
@@ -230,7 +214,7 @@ int main(int argc, char* argv[])
 			std::cerr << "End of input stream reached!" << std::endl;
 			exit(1);
 		}
-		//std::cerr << "Read block " << block_count << std::endl;
+		std::cerr << "Read block " << block_count << std::endl;
 		
 		
 		////////////////////////////////RF FRONT END////////////////////////////
@@ -246,8 +230,8 @@ int main(int argc, char* argv[])
 		
 		
 		// resampling filter (2.4MS/s -> 240kS/s, 0 - 100kHz)
-		resample(i_ds, state_i_lpf_100k, i_block, rf_coeff, 1, rf_decim, block_count);
-		resample(q_ds, state_q_lpf_100k, q_block, rf_coeff, 1, rf_decim, block_count);
+		resample(i_ds, state_i_lpf_100k, i_block, rf_coeff, 1, rf_decim);
+		resample(q_ds, state_q_lpf_100k, q_block, rf_coeff, 1, rf_decim);
 		
 		// FM demodulation
 		FMDemod(demod_data, prev_i, prev_q, i_ds, q_ds);
@@ -255,23 +239,56 @@ int main(int argc, char* argv[])
 		////////////////////////////////RF FRONT END////////////////////////////
 		
 		
-		monoProcessing(mono_temp, audio_coeff, audio_state, demod_data, audio_decim, audio_interp, block_count);
+		monoProcessing(mono_data, audio_coeff, audio_state, demod_data, audio_decim, audio_interp, block_count);
 		
-		// MONO DELAY
-		mono_data.clear();
-		mono_data.reserve(mono_temp.size());
-		mono_data.insert(mono_data.end(), mono_state.begin(), mono_state.end());
-		mono_data.insert(mono_data.end(), mono_temp.begin(), mono_temp.end() - mono_delay);
 		
-		mono_state.clear();
-		mono_state.insert(mono_state.end(), mono_temp.end() - mono_delay, mono_temp.end());
 		
 		if (channels == 2){
-			stereoProcessing(left_data, right_data, mono_data, carrier_coeff, carrier_state, channel_coeff, channel_state, audio_coeff, audio_state, demod_data, audio_decim, audio_interp, if_fs, block_count);
+			// MONO DELAY
+			mono_shift.clear();
+			mono_shift.reserve(mono_data.size());
+			mono_shift.insert(mono_shift.end(), mono_state.begin(), mono_state.end());
+			mono_shift.insert(mono_shift.end(), mono_data.begin(), mono_data.end() - mono_delay);
+			
+			mono_state.clear();
+			mono_state.insert(mono_state.end(), mono_data.end() - mono_delay, mono_data.end());
+			
+			stereoProcessing(stereo_data, carrier_coeff, carrier_state, channel_coeff, channel_state, audio_coeff, audio_state, demod_data, audio_decim, audio_interp, bp_fs, 
+							integrator, phaseEst, feedbackI, feedbackQ, ncoOut_state, trigOffset, block_count);
+			
+			// stereo combiner
+			LRExtraction(left_data, right_data, mono_shift, stereo_data);
+			
+			if (block_count < 4){
+				std::cerr << "left:" << std::endl;
+				for (int i = 0; i < 10; i++){
+					std::cerr << left_data[i] << std::endl;
+				}
+				std::cerr << "right:" << std::endl;
+				for (int i = 0; i < 10; i++){
+					std::cerr << right_data[i] << std::endl;
+				}
+			}
+			
+			int j = 0;
+			audio.clear();
+			audio.reserve(left_data.size() + right_data.size());
+			audio.resize(left_data.size() + right_data.size(), 0.0);
+			for (unsigned int k=0; k < left_data.size(); k++){
+				// RIGHT
+				if (std::isnan(right_data[k])) audio[j] = 0;
+				// prepare a block of audio data to be redirected to stdout at once
+				else audio[j] = static_cast<short int>(right_data[k] * 16384);
+				// LEFT
+				if (std::isnan(left_data[k])) audio[j+1] = 0;
+				// prepare a block of audio data to be redirected to stdout at once
+				else audio[j+1] = static_cast<short int>(left_data[k] * 16384);				
+				j+=2;
+			}
+			
+			fwrite(&audio[0], sizeof(short int), audio.size(), stdout);
 		}
-		
-		
-		if (channels == 1){
+		else if (channels == 1){
 			audio.clear();
 			audio.reserve(mono_data.size());
 			audio.resize(mono_data.size(), 0.0);
@@ -283,25 +300,6 @@ int main(int argc, char* argv[])
 			
 			fwrite(&audio[0], sizeof(short int), audio.size(), stdout);
 		}
-		else if (channels == 2){
-			int j = 0;
-			audio.clear();
-			audio.reserve(left_data.size() + right_data.size());
-			audio.resize(left_data.size() + right_data.size(), 0.0);
-			for (unsigned int k=0; k < left_data.size(); k++){
-				//// RIGHT
-				//if (std::isnan(right_data[k])) audio[j] = 0;
-				//// prepare a block of audio data to be redirected to stdout at once
-				//else audio[j] = static_cast<short int>(right_data[k] * 16384);
-				// LEFT
-				if (std::isnan(left_data[k])) audio[j+1] = 0;
-				// prepare a block of audio data to be redirected to stdout at once
-				else audio[j+1] = static_cast<short int>(left_data[k] * 16384);				
-				j+=2;
-			}
-			
-			fwrite(&audio[0], sizeof(short int), audio.size(), stdout);
-		}
 	}
 	
 	std::cerr << "done" << std::endl;
@@ -309,4 +307,5 @@ int main(int argc, char* argv[])
 }
 
 // cat ../data/samples_u8.raw | ./project | aplay -c 1 -f S16_LE -r 48000
+// rtl_sdr -f 87.5M -s 2.4M - | ./project | aplay -c 1 -f S16_LE -r 48000
 // gnuplot -e 'set terminal png size 1024,768' ../data/example.gnuplot > ../data/example.png

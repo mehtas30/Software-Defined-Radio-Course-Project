@@ -60,6 +60,7 @@ void impulseResponseBPF(std::vector<float> &h, const float fs, const float fb, c
 		
 		h[i] *= cos(i * PI * normCent);
 		h[i] *= std::pow(sin(i * PI / num_taps), 2);
+		
 	}
 }
 
@@ -119,7 +120,7 @@ void resample(std::vector<float> &output,
 			const std::vector<float> &input,
 			const std::vector<float> &coeff,
 			const int up_factor,
-			const int down_factor, const int block_count)
+			const int down_factor)
 {
 	int taps = coeff.size();
 	int block_size = input.size();
@@ -146,7 +147,6 @@ void resample(std::vector<float> &output,
 				output[n] += coeff[k] * state[state_size + j];
 			}
 		}
-		//output[n] *= up_factor;
 	}
 	
 	
@@ -222,7 +222,8 @@ void upsample(std::vector<float> &upsampled, const std::vector<float> &data, con
 }
 */
 
-void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const float nocoScale, const float phaseAdjust, const float normBandwidth)
+void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const float nocoScale, const float phaseAdjust, const float normBandwidth, 
+		 float &integrator, float &phaseEst, float &feedbackI, float &feedbackQ, float &ncoOut_state, float &trigOffset)
 {
 	float Cp = 2.666;
 	float Ci = 3.555;
@@ -235,12 +236,15 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 	ncoOut.clear(); 
 	ncoOut.reserve(pllin.size()); ncoOut.resize(pllin.size());
 	
-	float integrator = 0.0;
-	float phaseEst = 0.0;
-	float feedbackI = 1.0;
-	float feedbackQ = 0.0;
-	ncoOut[0] = 1.0;
-	float trigOffset = 0.0;
+	
+	ncoOut[0] = ncoOut_state;
+	
+	//std::cerr << "integrator: " << integrator << std::endl;
+	//std::cerr << "phaseEst: " << phaseEst << std::endl;
+	//std::cerr << "feedbackI: " << feedbackI << std::endl;
+	//std::cerr << "feedbackQ: " << feedbackQ << std::endl;
+	//std::cerr << "ncoOut_state: " << ncoOut_state << std::endl;
+	//std::cerr << "trigOffset: " << trigOffset << std::endl;
 	
 	float errorI;
 	float errorQ;
@@ -262,6 +266,7 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 		feedbackQ = sin(trigArg);
 		ncoOut[i] = cos(trigArg * nocoScale + phaseAdjust);
 	}
+	ncoOut_state = ncoOut[ncoOut.size() - 1];
 }
 
 void mixer(std::vector<float> &output, const std::vector<float> &arr1, const std::vector<float> &arr2)
