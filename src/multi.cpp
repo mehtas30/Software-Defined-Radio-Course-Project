@@ -46,17 +46,72 @@ void RF_thread(std::vector<float> &mono_data,std::vector<float> iq_block,std::ve
 		}
 
 }
-
-
-
-void audio_thread(std::vector<float> &mono_data,
+void monoProcessing(std::vector<float> &mono_data,
 					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
 					const std::vector<float> &demod_data,
-					int audio_decim, int audio_interp,std::queue<std::vector<int>> &my_queue,  \
-	                std::mutex& my_mutex, \
-	                std::condition_variable& my_cvar) {
-
+					int audio_decim, int audio_interp) 
+{
 				
+	// resampling filter (240kS/s -> 48kS/s, 0 - 16kHz)
+	//resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim);
+
+}
+
+
+void stereoProcessing(std::vector<float> &left_right_data, const std::vector<float> &mono_data, 
+					const std::vector<float> &carrier_coeff, std::vector<float> &carrier_state,
+					const std::vector<float> &channel_coeff, std::vector<float> &channel_state,
+					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
+					const std::vector<float> &demod_data,
+					int audio_decim, int audio_interp, int if_fs)
+{
+	// channel extraction
+	std::vector<float> channel_data;
+	
+	// carrier recovery
+	std::vector<float> carrier_data;
+	
+	// stereo processing
+	std::vector<float> mixer_data;
+	std::vector<float> stereo_data;
+	std::vector<float> left_data;
+	std::vector<float> right_data;
+	
+
+	// stereo channel extraction
+	//resample(channel_data, channel_state, demod_data, channel_coeff, 1, 1);
+	
+	// stereo carrier recovery
+	//resample(carrier_data, carrier_state, demod_data, carrier_coeff, 1, 1);
+	PLL(carrier_data, 19000, if_fs, 2, 0, 0.01);
+	
+	// stereo processing
+	mixer(mixer_data, channel_data, carrier_data);
+	//resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim);
+	
+	// at this point stereo_data contains L - R
+	
+	// stereo combiner
+	LRExtraction(left_data, right_data, mono_data, stereo_data);
+
+	// COMBINE LEFT AND RIGHT INTO ONE VECTOR -> left_right_data
+
+}
+
+
+
+void audio_thread(std::vector<float> &mono_data,std::vector<float> &left_right_data, const std::vector<float> &mono_data, 
+					const std::vector<float> &carrier_coeff, std::vector<float> &carrier_state,
+					const std::vector<float> &channel_coeff, std::vector<float> &channel_state,
+					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
+					const std::vector<float> &demod_data,
+					int audio_decim, int audio_interp, int if_fs) {
+
+				monoProcessing(mono_data, audio_coeff, audio_state,demod_data, audio_decim,audio_interp);
+                stereoProcessing(left_right_data, mono_data, carrier_coeff,carrier_state,
+					channel_coeff, channel_state,
+					audio_coeff, audio_state,
+					demod_data, audio_decim,  audio_interp, if_fs);
 
 }
 
@@ -177,7 +232,6 @@ int main(int argc, char* argv[])
 	}
 	
 	// begin processing
-	
 	// FM band extraction
 	std::vector<float> iq_block(block_size);
 	
@@ -246,4 +300,5 @@ int main(int argc, char* argv[])
 	audio_consumer.join();
 
 	return 0;
+}
 }
