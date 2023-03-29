@@ -119,7 +119,7 @@ void resample(std::vector<float> &output,
 			const std::vector<float> &input,
 			const std::vector<float> &coeff,
 			const int up_factor,
-			const int down_factor, const int block_count)
+			const int down_factor)
 {
 	int taps = coeff.size();
 	int block_size = input.size();
