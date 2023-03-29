@@ -119,7 +119,7 @@ void resample(std::vector<float> &output,
 			const std::vector<float> &input,
 			const std::vector<float> &coeff,
 			const int up_factor,
-			const int down_factor)
+			const int down_factor, const int block_count)
 {
 	int taps = coeff.size();
 	int block_size = input.size();
@@ -149,11 +149,13 @@ void resample(std::vector<float> &output,
 		//output[n] *= up_factor;
 	}
 	
+	
 	// state saving
 	state.clear();
+	state.reserve(taps - 1);
 	state.resize(taps - 1);
 	int indexState = 0;
-	for (int c = block_size - taps + 1; c < block_size; c++){
+	for (int c = block_size - (taps - 1); c < block_size; c++){
 		state[indexState] = input[c];
 		indexState++;
 	}
@@ -224,6 +226,7 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 {
 	float Cp = 2.666;
 	float Ci = 3.555;
+	
 	float Kp = normBandwidth * Cp;
 	float Ki = normBandwidth * normBandwidth * Ci;
 	std::vector<float> pllin;
@@ -234,10 +237,11 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 	
 	float integrator = 0.0;
 	float phaseEst = 0.0;
-	float feedbackI = 0.0;
+	float feedbackI = 1.0;
 	float feedbackQ = 0.0;
 	ncoOut[0] = 1.0;
 	float trigOffset = 0.0;
+	
 	float errorI;
 	float errorQ;
 	float errorD;
@@ -248,8 +252,10 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 		errorI = pllin[i] * feedbackI;
 		errorQ = pllin[i] * (-feedbackQ);
 		errorD = atan2(errorQ, errorI);
-		integrator = integrator + (Ki * errorD);
-		phaseEst = phaseEst + (Kp * errorD) + integrator;
+		
+		integrator += Ki * errorD;
+		phaseEst += (Kp * errorD) + integrator;
+		
 		trigOffset += 1;
 		trigArg = 2 * PI * (freq / Fs) * (trigOffset) + phaseEst;
 		feedbackI = cos(trigArg);
@@ -260,11 +266,11 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 
 void mixer(std::vector<float> &output, const std::vector<float> &arr1, const std::vector<float> &arr2)
 {
-	output.clear(); output.reserve(arr1.size());
+	output.clear(); output.reserve(arr1.size()); output.resize(arr1.size(), 0.0);
 	
 	for (int i = 0; i < arr1.size(); i++)
 	{
-		output.push_back(arr1[i] * arr2[i]);
+		output[i] = 2 * (arr1[i] * arr2[i]);
 	}
 }
 
@@ -273,8 +279,8 @@ void LRExtraction(std::vector<float> &left, std::vector<float> &right, const std
 	int size = mono_data.size();
 	left.clear();
 	right.clear();
-	left.reserve(size); left.resize(size);
-	right.reserve(size); right.resize(size);
+	left.reserve(size); left.resize(size, 0.0);
+	right.reserve(size); right.resize(size, 0.0);
 	for (int i = 0; i < size; i++)
 	{
 		left[i] = (mono_data[i] + stereo_data[i]) * 0.5;
