@@ -21,7 +21,7 @@ int generated_elems = 0;
 
 #define QUEUE_ELEMS 3
 
-void RF_thread(std::vector<float> &mono_data,std::vector<float> iq_block,std::vector<float> i_ds, std::vector<float> q_ds, 	std::vector<float> i_block, std::vector<float> q_block,	std::vector<float> state_i_lpf_100k,std::vector<float> state_q_lpf_100k,std::vector<float> rf_coeff,std::vector<float> demod_data,	float prev_i,float prev_q, int block_count){
+void RF_thread(std::vector<float> iq_block,std::vector<float> i_ds, std::vector<float> q_ds, 	std::vector<float> i_block, std::vector<float> q_block,	std::vector<float> state_i_lpf_100k,std::vector<float> state_q_lpf_100k,std::vector<float> rf_coeff,std::vector<float> demod_data,	float prev_i,float prev_q, int block_count){
 		// separate iq_block into I and Q
         int rf_decim = 10;
 		int j = 0;
@@ -49,21 +49,22 @@ void RF_thread(std::vector<float> &mono_data,std::vector<float> iq_block,std::ve
 void monoProcessing(std::vector<float> &mono_data,
 					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
 					const std::vector<float> &demod_data,
-					int audio_decim, int audio_interp) 
+					int &audio_decim, int &audio_interp) 
 {
 				
 	// resampling filter (240kS/s -> 48kS/s, 0 - 16kHz)
-	//resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim);
+	resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim);
 
 }
 
 
-void stereoProcessing(std::vector<float> &left_right_data, const std::vector<float> &mono_data, 
+void stereoProcessing(std::vector<float> &left_data, std::vector<float> &right_data, 
+					const std::vector<float> &mono_data, 
 					const std::vector<float> &carrier_coeff, std::vector<float> &carrier_state,
 					const std::vector<float> &channel_coeff, std::vector<float> &channel_state,
 					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
 					const std::vector<float> &demod_data,
-					int audio_decim, int audio_interp, int if_fs)
+					const int &audio_decim, const int &audio_interp, const int &if_fs, const int &block_count)
 {
 	// channel extraction
 	std::vector<float> channel_data;
@@ -74,8 +75,7 @@ void stereoProcessing(std::vector<float> &left_right_data, const std::vector<flo
 	// stereo processing
 	std::vector<float> mixer_data;
 	std::vector<float> stereo_data;
-	std::vector<float> left_data;
-	std::vector<float> right_data;
+
 	
 
 	// stereo channel extraction
@@ -100,33 +100,94 @@ void stereoProcessing(std::vector<float> &left_right_data, const std::vector<flo
 
 
 
-void audio_thread(std::vector<float> &mono_data,std::vector<float> &left_right_data, const std::vector<float> &mono_data, 
-					const std::vector<float> &carrier_coeff, std::vector<float> &carrier_state,
-					const std::vector<float> &channel_coeff, std::vector<float> &channel_state,
+void audio_thread(std::vector<float> &mono_data,
 					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
 					const std::vector<float> &demod_data,
-					int audio_decim, int audio_interp, int if_fs) {
+					int &audio_decim, int &audio_interp,
+					std::vector<float> &carrier_coeff, std::vector<float> &carrier_state, \
+					std::vector<float> &channel_coeff, std::vector<float> &channel_state, \
+				    const int &if_fs, const int &block_count, int &channels, std::vector<float> &mono_temp,std::vector<float> &mono_state,int &mono_delay,	std::vector<float> &left_data, \
+	                std::vector<float> &right_data, \
+	                std::vector<short int> &audio) {
 
-				monoProcessing(mono_data, audio_coeff, audio_state,demod_data, audio_decim,audio_interp);
-                stereoProcessing(left_right_data, mono_data, carrier_coeff,carrier_state,
-					channel_coeff, channel_state,
-					audio_coeff, audio_state,
-					demod_data, audio_decim,  audio_interp, if_fs);
+		monoProcessing(mono_data, audio_coeff, audio_state, demod_data, audio_decim,audio_interp);
+                // MONO DELAY
+		mono_data.clear();
+		mono_data.reserve(mono_temp.size());
+		mono_data.insert(mono_data.end(), mono_state.begin(), mono_state.end());
+		mono_data.insert(mono_data.end(), mono_temp.begin(), mono_temp.end() - mono_delay);
+		
+		mono_state.clear();
+		mono_state.insert(mono_state.end(), mono_temp.end() - mono_delay, mono_temp.end());
+		
+		if (channels == 2){
+			stereoProcessing(left_data, right_data, mono_data, carrier_coeff, carrier_state, channel_coeff, channel_state, audio_coeff, audio_state, demod_data, audio_decim, audio_interp, if_fs, block_count);
 
-}
+		}
+		
+		if (channels == 1){
+			audio.clear();
+			audio.reserve(mono_data.size());
+			audio.resize(mono_data.size(), 0.0);
+			for (unsigned int k=0; k < mono_data.size(); k++){
+				if (std::isnan(mono_data[k])) audio[k] = 0;
+				// prepare a block of audio data to be redirected to stdout at once
+				else audio[k] = static_cast<short int>(mono_data[k] * 16384);
+			}
+			
+			fwrite(&audio[0], sizeof(short int), audio.size(), stdout);
+		}
+		else if (channels == 2){
+			int j = 0;
+			audio.clear();
+			audio.reserve(left_data.size() + right_data.size());
+			audio.resize(left_data.size() + right_data.size(), 0.0);
+			for (unsigned int k=0; k < left_data.size(); k++){
+				//// RIGHT
+				//if (std::isnan(right_data[k])) audio[j] = 0;
+				//// prepare a block of audio data to be redirected to stdout at once
+				//else audio[j] = static_cast<short int>(right_data[k] * 16384);
+				// LEFT
+				if (std::isnan(left_data[k])) audio[j+1] = 0;
+				// prepare a block of audio data to be redirected to stdout at once
+				else audio[j+1] = static_cast<short int>(left_data[k] * 16384);				
+				j+=2;
+			}
+			
+			fwrite(&audio[0], sizeof(short int), audio.size(), stdout);
+		}
+	}
+	
+
+
+
+
 
 
 void my_producer(std::queue<std::vector<int>> &my_queue,  \
 	std::mutex& my_mutex, \
-	std::condition_variable& my_cvar)
-{
-	while (true)
-	{
+	std::condition_variable& my_cvar,std::vector<float> i_ds, \
+std::vector<float>& q_ds, \ 
+std::vector<float>& i_block, \ 
+std::vector<float>& q_block, \ 
+std::vector<float> &state_i_lpf_100k, \
+std::vector<float> &state_q_lpf_100k,\
+std::vector<float> &rf_coeff, \
+std::vector<float> &demod_data,\
+float &prev_i, \
+float &prev_q,\ 
+int &block_count, \ 
+int &block_size, \
+std::vector<float> &iq_block)
+{           
+	for (;; block_count++){
+        readStdinBlockData(block_size, block_count, iq_block);
         if ((std::cin.rdstate())!=0){
             break;
         }
+
 		std::vector<int> elem;
-		RF_thread();
+		RF_thread(iq_block,i_ds,q_ds,i_block,q_block,state_i_lpf_100k,state_q_lpf_100k,rf_coeff,demod_data,prev_i,prev_q,block_count);
 		generated_elems++;
 
 		std::unique_lock<std::mutex> my_lock(my_mutex);
@@ -139,9 +200,17 @@ void my_producer(std::queue<std::vector<int>> &my_queue,  \
 	}
 }
 
-void my_consume(std::queue<std::vector<int>> &my_queue,  \
+void my_consumer(std::queue<std::vector<int>> &my_queue,  \
 	std::mutex& my_mutex, \
-	std::condition_variable& my_cvar)
+	std::condition_variable& my_cvar, std::vector<float> &mono_data,
+					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
+					const std::vector<float> &demod_data,
+					int& audio_decim, int& audio_interp,
+					std::vector<float> &carrier_coeff, std::vector<float> &carrier_state, \
+					std::vector<float> &channel_coeff, std::vector<float> &channel_state, \
+				    const int &if_fs, const int &block_count, int &channels, std::vector<float> &mono_temp,std::vector<float> &mono_state,int &mono_delay,	std::vector<float> &left_data, \
+	                std::vector<float> &right_data, \
+	                std::vector<short int> &audio)
 {
 	while (1)
 	{
@@ -154,7 +223,15 @@ void my_consume(std::queue<std::vector<int>> &my_queue,  \
 		my_cvar.notify_one();
 		my_lock.unlock();
 
-		audio_thread();
+		audio_thread(mono_data,
+					audio_coeff,audio_state,
+					demod_data,
+					audio_decim, audio_interp,
+					carrier_coeff, carrier_state, \
+					channel_coeff, channel_state, \
+				    if_fs, block_count, channels, mono_temp, mono_state, mono_delay,left_data, \
+	                right_data, \
+	                audio);
 		if ((generated_elems == TOTAL_ELEMS) && my_queue.empty())
 			break;
 	}
@@ -286,13 +363,14 @@ int main(int argc, char* argv[])
 	std::vector<float> right_data;
 	std::vector<short int> audio;
 	
-	for (;; block_count++){
+	// for (;; block_count++){
 		
-		readStdinBlockData(block_size, block_count, iq_block);
-		if((std::cin.rdstate()) != 0){
-			std::cerr << "End of input stream reached!" << std::endl;
-			exit(1);
-		}
+	// 	readStdinBlockData(block_size, block_count, iq_block);
+	// 	if((std::cin.rdstate()) != 0){
+	// 		std::cerr << "End of input stream reached!" << std::endl;
+	// 		exit(1);
+	// 	}
+    // }
 		//std::cerr << "Read block " << block_count << std::endl;
 		
 	
@@ -300,15 +378,34 @@ int main(int argc, char* argv[])
 	std::mutex my_mutex;
 	std::condition_variable my_cvar;
 
-	std::thread RF_producer = std::thread(RF_thread, std::ref(my_queue), \
-		std::ref(my_mutex), std::ref(my_cvar));
+	std::thread RF_producer = std::thread(my_producer, std::ref(my_queue), \
+		std::ref(my_mutex), std::ref(my_cvar), i_ds, 
+         q_ds, \ 
+        i_block, \ 
+        q_block, \ 
+        state_i_lpf_100k, \
+        state_q_lpf_100k,\
+        rf_coeff, \
+        demod_data,\
+        prev_i, \
+        prev_q,\ 
+        block_count, \ 
+        block_size, \
+        iq_block);
 
-	std::thread audio_consumer = std::thread(audio_thread, std::ref(my_queue), \
-		std::ref(my_mutex), std::ref(my_cvar));
+	std::thread audio_consumer = std::thread(my_consumer, std::ref(my_queue), \
+		std::ref(my_mutex), mono_data,
+					audio_coeff,audio_state,
+					demod_data,
+					audio_decim, audio_interp,
+					carrier_coeff, carrier_state, \
+					channel_coeff, channel_state, \
+				    if_fs, block_count, channels, mono_temp, mono_state, mono_delay,left_data, \
+	                right_data, \
+	                audio);
 
 	RF_producer.join();
 	audio_consumer.join();
 
 	return 0;
-}
 }
