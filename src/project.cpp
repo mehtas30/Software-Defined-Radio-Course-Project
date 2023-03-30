@@ -13,8 +13,6 @@ Ontario, Canada
 #include "../include/genfunc.h"
 #include "../include/iofunc.h"
 #include "../include/logfunc.h"
-#include <chrono>
-
 
 void monoProcessing(std::vector<float> &mono_data,
 					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
@@ -39,7 +37,6 @@ void stereoProcessing(std::vector<float> &stereo_data,
 {
 	// channel extraction
 	std::vector<float> channel_data;
-	std::vector<float> channel_temp;
 	
 	// carrier recovery
 	std::vector<float> carrier_data;
@@ -57,8 +54,6 @@ void stereoProcessing(std::vector<float> &stereo_data,
 	// stereo processing
 	mixer(mixer_data, channel_data, carrier_data);
 	
-	
-
 	// 16kHz filter
 	resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim);
 }
@@ -72,28 +67,34 @@ int main(int argc, char* argv[])
 	std::vector<float> bin_data;
 	readBinData(in_fname, bin_data);
 
-	int mode = 2;
-	int channels = 2;
+	int mode = 0;
+	int channels = 1;
 
-	if (argc < 2){
-		std::cerr << "Operating in default mode 0" << std::endl;
+	if (argc < 3){
+		std::cerr << "Operating in default mode 0, mono" << std::endl;
 	}
-	else if (argc == 2){
+	else if (argc == 3){
 		mode = atoi(argv[1]);
-		if (mode > 3){
-			std::cerr << "Wrong mode " << mode << std::endl;
+		channels = atoi(argv[2]);
+		if (mode < 0 || mode > 3){
+			std::cerr << "Invalid mode: " << mode << "!" << std::endl;
+			exit(1);
+		}
+		if (channels < 1 || channels > 2){
+			std::cerr << "Invaild channel: " << channels << "!" << std::endl;
 			exit(1);
 		}
 	}
 	else{
 		std::cerr << "Usage: " << argv[0] << std::endl;
 		std::cerr << "or " << std::endl;
-		std::cerr << "Usage " << argv[0] << " <mode>" << std::endl;
-		std::cerr << "\t\t <mode> is a value from 0 to 3" << std::endl;
+		std::cerr << "Usage " << argv[0] << " <mode> <channels>" << std::endl;
+		std::cerr << "\t\t<mode> is a value from 0 to 3\n\t\t   <channels> is either 1 or 2" << std::endl;
 		exit(1);
 	}
 
-	std::cerr << "Operating in mode " << mode << std::endl;
+	if (channels == 1) std::cerr << "Operating in mode " << mode << ", mono" << std::endl;
+	else std::cerr << "Operating in mode " << mode << ", stereo" << std::endl;
 
 	int rf_fs = 2400000;
 	int rf_fc = 100000;
@@ -104,14 +105,10 @@ int main(int argc, char* argv[])
 	int bp_fs = 240000;
 	int bp_taps = 51;
 
-	int audio_fs = 48000;
 	int audio_fc = 16000;
 	int audio_taps = 51;
 	int audio_decim = 5;
 	int audio_interp = 1;
-
-	int block_size = 512 * rf_decim * audio_decim * 2;
-	int block_count = 0;
 	
 	int mono_delay = 5;
 
@@ -119,19 +116,19 @@ int main(int argc, char* argv[])
 		rf_fs = 2400000; rf_decim = 10;
 		if_fs = 240000;
 		bp_fs = 240000;
-		audio_fs = 48000; audio_decim = 5;
+		audio_decim = 5;
 	}
 	else if (mode == 1){ 
 		rf_fs = 1152000; rf_decim = 4;
 		if_fs = 288000;
 		bp_fs = 288000;
-		audio_fs = 48000; audio_decim = 4;
+		audio_decim = 6;
 	}
 	else if (mode == 2){ 
 		rf_fs = 2400000; rf_decim = 10;
 		if_fs = 240000;
 		bp_fs = 240000;
-		audio_fs = 44100; audio_decim = 800; audio_interp = 147;
+		audio_decim = 800; audio_interp = 147;
 		audio_taps *= audio_interp;
 		if_fs *= audio_interp;
 	}
@@ -139,10 +136,13 @@ int main(int argc, char* argv[])
 		rf_fs = 2304000; rf_decim = 9;
 		if_fs = 256000;
 		bp_fs = 256000;
-		audio_fs = 44100; audio_decim = 2560; audio_interp = 441;
+		audio_decim = 2560; audio_interp = 441;
 		audio_taps *= audio_interp;
 		if_fs *= audio_interp;
 	}
+	
+	int block_size = 256 * rf_decim * audio_decim;
+	int block_count = 0;
 	
 	// begin processing
 	
@@ -170,14 +170,13 @@ int main(int argc, char* argv[])
 	std::vector<float> demod_data;
 	
 	// stereo channel extraction
-	std::vector<float> channel_state(audio_taps-1, 0.0);
-	float channel_state2 = 0;
+	std::vector<float> channel_state(bp_taps-1, 0.0);
 	// coefficients for stereo channel extraction, 22kHz to 54kHz
 	std::vector<float> channel_coeff;
 	impulseResponseBPF(channel_coeff, bp_fs, 22000.0, 54000.0, bp_taps);
 	
 	// stereo carrier recovery 
-	std::vector<float> carrier_state(audio_taps-1, 0.0);
+	std::vector<float> carrier_state(bp_taps-1, 0.0);
 	// coefficients for stereo carrier recovery, 18.5kHz to 19.5kHz
 	std::vector<float> carrier_coeff;
 	impulseResponseBPF(carrier_coeff, bp_fs, 18500, 19500, bp_taps);
@@ -201,9 +200,7 @@ int main(int argc, char* argv[])
 	
 	std::vector<float> left_data;
 	std::vector<float> right_data;
-
 	std::vector<float> stereo_data;
-
 	
 	std::vector<short int> audio;
 	
@@ -214,8 +211,7 @@ int main(int argc, char* argv[])
 			std::cerr << "End of input stream reached!" << std::endl;
 			exit(1);
 		}
-		std::cerr << "Read block " << block_count << std::endl;
-		
+		//std::cerr << "Read block " << block_count << std::endl;
 		
 		////////////////////////////////RF FRONT END////////////////////////////
 		
@@ -237,8 +233,6 @@ int main(int argc, char* argv[])
 		FMDemod(demod_data, prev_i, prev_q, i_ds, q_ds);
 		
 		////////////////////////////////RF FRONT END////////////////////////////
-		
-		
 		monoProcessing(mono_data, audio_coeff, audio_state, demod_data, audio_decim, audio_interp, block_count);
 		
 		
@@ -253,23 +247,13 @@ int main(int argc, char* argv[])
 			mono_state.clear();
 			mono_state.insert(mono_state.end(), mono_data.end() - mono_delay, mono_data.end());
 			
-			stereoProcessing(stereo_data, carrier_coeff, carrier_state, channel_coeff, channel_state, audio_coeff, audio_state, demod_data, audio_decim, audio_interp, bp_fs, 
+			stereoProcessing(stereo_data, 
+							carrier_coeff, carrier_state, channel_coeff, channel_state, audio_coeff, audio_state, 
+							demod_data, audio_decim, audio_interp, bp_fs, 
 							integrator, phaseEst, feedbackI, feedbackQ, ncoOut_state, trigOffset, block_count);
 			
 			// stereo combiner
 			LRExtraction(left_data, right_data, mono_shift, stereo_data);
-			
-			if (block_count < 4){
-				std::cerr << "left:" << std::endl;
-				for (int i = 0; i < 10; i++){
-					std::cerr << left_data[i] << std::endl;
-				}
-				std::cerr << "right:" << std::endl;
-				for (int i = 0; i < 10; i++){
-					std::cerr << right_data[i] << std::endl;
-				}
-			}
-			
 			int j = 0;
 			audio.clear();
 			audio.reserve(left_data.size() + right_data.size());

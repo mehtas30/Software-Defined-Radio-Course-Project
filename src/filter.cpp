@@ -9,7 +9,6 @@ Ontario, Canada
 #include "dy4.h"
 #include "../include/filter.h"
 #include <cmath>
-#include <chrono>
 
 // function to compute the impulse response "h" based on the sinc function
 void impulseResponseLPF(std::vector<float> &h, const float Fs, const float Fc, const int num_taps, const int gain)
@@ -64,56 +63,6 @@ void impulseResponseBPF(std::vector<float> &h, const float fs, const float fb, c
 	}
 }
 
-// OBSOLETE FUNCTION
-
-void LPFilter(std::vector<float> &output,
-			std::vector<float> &state,
-			const std::vector<float> &input,
-			const std::vector<float> &coeff)
-{
-	int taps = (int)coeff.size();
-	int block_size = (int)input.size();
-	int state_size = (int)state.size();
-
-	//std::cerr << "taps=" << taps << ", block size=" << block_size << std::endl;
-	// allocate memory for the output (filtered) data
-	output.clear(); 
-	output.reserve(block_size);
-	
-	//std::cerr << "reserved size = " << output.size() << std::endl;
-		
-	// concatenate state, input
-	std::vector<float> signal;
-	signal.insert(signal.end(), state.begin(), state.end());
-	signal.insert(signal.end(), input.begin(), input.end());
-
-	// discrete convolution
-	for (int n = 0; n < block_size; n++){
-		float sum_product = 0.0;
-		for (int k = 0; k < taps; k++){
-			int nk = n-k;
-			if ((nk >= 0) && (nk < block_size)){
-				sum_product += coeff[k] * input[nk];
-			}
-			else {
-				sum_product += coeff[k] * state[state_size + nk];
-			}
-		}
-		output.push_back(sum_product);
-	}
-	
-	//std::cerr << "filled size = " << output.size() << std::endl;
-	// state saving
-	state.clear();
-	state.resize(taps - 1);
-	int indexState = 0;
-	for (int c = block_size - taps+1; c < block_size; c++){
-		state[indexState] = input[c];
-		indexState++;
-	}
-}
-
-
 // does upsampling, convolution, and downsampling
 void resample(std::vector<float> &output,
 			std::vector<float> &state,
@@ -126,13 +75,12 @@ void resample(std::vector<float> &output,
 	int block_size = input.size();
 	int state_size = state.size();
 
-	//std::cerr << "taps=" << taps << ", block size=" << block_size << ", up=" << up_factor << ", down=" << down_factor << std::endl;
 	// allocate memory for the output (filtered) data
 	output.clear(); 
-	output.reserve(int(block_size * up_factor / down_factor));
-	output.resize(int(block_size * up_factor / down_factor), 0.0);
+	output.reserve(int(block_size * up_factor / (float)down_factor));
+	output.resize(int(block_size * up_factor / (float)down_factor), 0.0);
 	
-	for (int n = 0; n < output.size(); n++){
+	for (unsigned int n = 0; n < output.size(); n++){
 		int phase = (n * down_factor) % up_factor;
 		
 		output[n] = 0.0;
@@ -148,7 +96,6 @@ void resample(std::vector<float> &output,
 			}
 		}
 	}
-	
 	
 	// state saving
 	state.clear();
@@ -191,36 +138,6 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 	}
 }
 
-// OBSOLETE FUNCTIONS
-
-void downsample(std::vector<float> &downsampled, const std::vector<float> &data, const int down_factor) {
-
-	downsampled.clear(); downsampled.reserve(data.size());
-	
-	for (int i = 0; i < data.size(); i += down_factor) {
-		//std::cerr << "c0" << std::endl;
-		downsampled.push_back(data[i]);
-		//std::cerr << "c1" << std::endl;
-	}
-}
-
-
-/*
-void upsample(std::vector<float> &upsampled, const std::vector<float> &data, const int up_factor){
-	upsampled.clear();
-	if (up_factor == 1) {
-		upsampled.insert(upsampled.end(), data.begin(), data.end());
-		return;
-	}
-	
-	upsampled.reserve(data.size() * up_factor);
-	upsampled.resize(data.size() * up_factor, 0.0);
-
-	for (int i = 0; i < (int)data.size(); i++){
-		upsampled[i * up_factor] = data[i];
-	}
-}
-*/
 
 void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const float nocoScale, const float phaseAdjust, const float normBandwidth, 
 		 float &integrator, float &phaseEst, float &feedbackI, float &feedbackQ, float &ncoOut_state, float &trigOffset)
@@ -236,23 +153,15 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 	ncoOut.clear(); 
 	ncoOut.reserve(pllin.size()); ncoOut.resize(pllin.size());
 	
-	
 	ncoOut[0] = ncoOut_state;
-	
-	//std::cerr << "integrator: " << integrator << std::endl;
-	//std::cerr << "phaseEst: " << phaseEst << std::endl;
-	//std::cerr << "feedbackI: " << feedbackI << std::endl;
-	//std::cerr << "feedbackQ: " << feedbackQ << std::endl;
-	//std::cerr << "ncoOut_state: " << ncoOut_state << std::endl;
-	//std::cerr << "trigOffset: " << trigOffset << std::endl;
 	
 	float errorI;
 	float errorQ;
 	float errorD;
 	float trigArg;
 	
-	for (int i = 0; i < pllin.size(); i++)
-	{
+	for (unsigned int i = 0; i < pllin.size(); i++){
+		
 		errorI = pllin[i] * feedbackI;
 		errorQ = pllin[i] * (-feedbackQ);
 		errorD = atan2(errorQ, errorI);
@@ -266,6 +175,7 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 		feedbackQ = sin(trigArg);
 		ncoOut[i] = cos(trigArg * nocoScale + phaseAdjust);
 	}
+	
 	ncoOut_state = ncoOut[ncoOut.size() - 1];
 }
 
@@ -273,8 +183,8 @@ void mixer(std::vector<float> &output, const std::vector<float> &arr1, const std
 {
 	output.clear(); output.reserve(arr1.size()); output.resize(arr1.size(), 0.0);
 	
-	for (int i = 0; i < arr1.size(); i++)
-	{
+	for (unsigned int i = 0; i < arr1.size(); i++){
+		
 		output[i] = 2 * (arr1[i] * arr2[i]);
 	}
 }
@@ -286,8 +196,9 @@ void LRExtraction(std::vector<float> &left, std::vector<float> &right, const std
 	right.clear();
 	left.reserve(size); left.resize(size, 0.0);
 	right.reserve(size); right.resize(size, 0.0);
-	for (int i = 0; i < size; i++)
-	{
+	
+	for (int i = 0; i < size; i++){
+		
 		left[i] = (mono_data[i] + stereo_data[i]) * 0.5;
 		right[i] = (mono_data[i] - stereo_data[i]) * 0.5;
 	}
