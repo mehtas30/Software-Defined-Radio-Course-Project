@@ -121,36 +121,41 @@ void resample(std::vector<float> &output,
 			const int up_factor,
 			const int down_factor)
 {
-	int taps = (int)coeff.size();
-	int block_size = (int)input.size();
-	int state_size = (int)state.size();
+	int taps = coeff.size();
+	int block_size = input.size();
+	int state_size = state.size();
 
-	//std::cerr << "taps=" << taps << ", block size=" << block_size << std::endl;
+	//std::cerr << "taps=" << taps << ", block size=" << block_size << ", up=" << up_factor << ", down=" << down_factor << std::endl;
 	// allocate memory for the output (filtered) data
 	output.clear(); 
-	output.reserve(block_size * up_factor / down_factor);
-	output.resize(block_size * up_factor / down_factor, 0.0);
+	output.reserve(int(block_size * up_factor / down_factor));
+	output.resize(int(block_size * up_factor / down_factor), 0.0);
 	
 	for (int n = 0; n < output.size(); n++){
 		int phase = (n * down_factor) % up_factor;
 		
+		output[n] = 0.0;
+		
 		for (int k = phase; k < taps; k += up_factor){
-			int j = int(((down_factor * n) - k) / up_factor);
+			int j = int((n * down_factor - k) / up_factor);
 			
-			if ((j >= 0) && (j < block_size)){
+			if (j >= 0){
 				output[n] += coeff[k] * input[j];
 			} 
 			else{
 				output[n] += coeff[k] * state[state_size + j];
 			}
 		}
+		//output[n] *= up_factor;
 	}
+	
 	
 	// state saving
 	state.clear();
+	state.reserve(taps - 1);
 	state.resize(taps - 1);
 	int indexState = 0;
-	for (int c = block_size - taps + 1; c < block_size; c++){
+	for (int c = block_size - (taps - 1); c < block_size; c++){
 		state[indexState] = input[c];
 		indexState++;
 	}
@@ -175,6 +180,9 @@ void FMDemod(std::vector<float> &fm_demod, float &prev_i, float &prev_q, const s
 			// i * dq/dt - q * di/dt
 			float numerator = (curr_i * deriv_q) - (curr_q * deriv_i);
 			fm_demod.push_back(numerator / denominator);
+		}
+		else{
+			fm_demod.push_back(0.0);
 		}
 
 		// state saving
@@ -218,6 +226,7 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 {
 	float Cp = 2.666;
 	float Ci = 3.555;
+	
 	float Kp = normBandwidth * Cp;
 	float Ki = normBandwidth * normBandwidth * Ci;
 	std::vector<float> pllin;
@@ -228,10 +237,11 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 	
 	float integrator = 0.0;
 	float phaseEst = 0.0;
-	float feedbackI = 0.0;
+	float feedbackI = 1.0;
 	float feedbackQ = 0.0;
 	ncoOut[0] = 1.0;
 	float trigOffset = 0.0;
+	
 	float errorI;
 	float errorQ;
 	float errorD;
@@ -242,8 +252,10 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 		errorI = pllin[i] * feedbackI;
 		errorQ = pllin[i] * (-feedbackQ);
 		errorD = atan2(errorQ, errorI);
-		integrator = integrator + (Ki * errorD);
-		phaseEst = phaseEst + (Kp * errorD) + integrator;
+		
+		integrator += Ki * errorD;
+		phaseEst += (Kp * errorD) + integrator;
+		
 		trigOffset += 1;
 		trigArg = 2 * PI * (freq / Fs) * (trigOffset) + phaseEst;
 		feedbackI = cos(trigArg);
@@ -254,11 +266,11 @@ void PLL(std::vector<float> &ncoOut, const float freq, const float Fs, const flo
 
 void mixer(std::vector<float> &output, const std::vector<float> &arr1, const std::vector<float> &arr2)
 {
-	output.clear(); output.reserve(arr1.size());
+	output.clear(); output.reserve(arr1.size()); output.resize(arr1.size(), 0.0);
 	
 	for (int i = 0; i < arr1.size(); i++)
 	{
-		output.push_back(arr1[i] * arr2[i]);
+		output[i] = 2 * (arr1[i] * arr2[i]);
 	}
 }
 
@@ -267,8 +279,8 @@ void LRExtraction(std::vector<float> &left, std::vector<float> &right, const std
 	int size = mono_data.size();
 	left.clear();
 	right.clear();
-	left.reserve(size); left.resize(size);
-	right.reserve(size); right.resize(size);
+	left.reserve(size); left.resize(size, 0.0);
+	right.reserve(size); right.resize(size, 0.0);
 	for (int i = 0; i < size; i++)
 	{
 		left[i] = (mono_data[i] + stereo_data[i]) * 0.5;

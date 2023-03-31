@@ -168,9 +168,6 @@ def stereoExtract(fm_demod, channelExtractState, channelExtractData):
     channelExtractFiltered, channelExtractState = filter(channelExtractCoeff, fm_demod, channelExtractState)
 
     channelExtractData = channelExtractFiltered
-    
-
-    #channelExtractData = np.concatenate([channelExtractData, channelExtractFiltered])
 
     return channelExtractData, channelExtractState
 
@@ -188,9 +185,12 @@ def monoProcess(fm_demod, monoCoeff, audio_state, audioDecim, audio_data):
 def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, upFactor, downFactor, stereoData):
     #print(len(leftData))
     mixerData = mixer(channelExtractData, carrierRecoveryData)
-    #print(len(mixerData))
-    #print("this is mixer")
-    #print(mixerData)
+
+    print("mixer data")
+    for i in range(10):
+        print(mixerData[i])
+
+
     downSampled = downsample(mixerData, downFactor)
     #print("downsample")
     #print(len(downSampled))
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     # read the raw IQ data from the recorded file
     # IQ data is assumed to be in 8-bits unsigned (and interleaved)
-    in_fname = "data\samples_u8.raw"
+    in_fname = "../data/samples_u8.raw"
     raw_data = np.fromfile(in_fname, dtype='uint8')
     print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
     # IQ data is normalized between -1 and +1 in 32-bit float format
@@ -283,7 +283,7 @@ if __name__ == "__main__":
 
     # select a block_size that is a multiple of KB
     # and a multiple of decimation factors
-    block_size = 1024 * rf_decim * audio_decim * 2
+    block_size = 128 * rf_decim * audio_decim * 2
     block_count = 0
 
     # coefficients for IQ -> IF LPFs, Fc = 100kHz
@@ -351,11 +351,17 @@ if __name__ == "__main__":
         fm_demod_us = upsample(fm_demod, audio_interp)
 
         channelExtractData, channelExtractState = extractData = stereoExtract(fm_demod_us, channelExtractState, channelExtractData)
-        #print("This is extract data")
-        #print(channelExtractData)
+        # if block_count < 3:
+            # print("channel data")
+            # for i in range(10):
+                # print(channelExtractData[i])
+
         carrierRecoveryData, carrierRecoveryState = stereoRecovery(fm_demod_us, carrierRecoveryState, carrierRecoveryData)
-        #print("this is carrier")
-        #print(carrierRecoveryData)
+        # if block_count < 3:
+            # print("carrier data")
+            # for i in range(10):
+                # print(carrierRecoveryData[i])
+                
         monoData, monoState = monoProcess(fm_demod_us, monoCoeff, monoState, audio_decim, monoData)
 
         #monoData = padData(audio_taps, monoData)
