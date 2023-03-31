@@ -21,9 +21,8 @@ int generated_elems = 0;
 
 #define QUEUE_ELEMS 3
 
-void RF_thread(std::vector<float> iq_block,std::vector<float> i_ds, std::vector<float> q_ds, 	std::vector<float> i_block, std::vector<float> q_block,	std::vector<float> state_i_lpf_100k,std::vector<float> state_q_lpf_100k,std::vector<float> rf_coeff,std::vector<float> demod_data,	float prev_i,float prev_q, int block_count){
+void RF_thread(std::vector<float> iq_block,std::vector<float> i_ds, std::vector<float> q_ds, 	std::vector<float> i_block, std::vector<float> q_block,	std::vector<float> state_i_lpf_100k,std::vector<float> state_q_lpf_100k,std::vector<float> rf_coeff,std::vector<float> demod_data,	float prev_i,float prev_q, int block_count, int rf_decim){
 		// separate iq_block into I and Q
-        int rf_decim = 10;
 		int j = 0;
 		for (int i = 0; i < (int)iq_block.size(); i+=2){
 			i_block[j] = iq_block[i];
@@ -178,7 +177,8 @@ float &prev_i, \
 float &prev_q,\ 
 int &block_count, \ 
 int &block_size, \
-std::vector<float> &iq_block)
+std::vector<float> &iq_block,\
+int &rf_decim)
 {           
 	for (;; block_count++){
         readStdinBlockData(block_size, block_count, iq_block);
@@ -187,7 +187,7 @@ std::vector<float> &iq_block)
         }
 
 		std::vector<int> elem;
-		RF_thread(iq_block,i_ds,q_ds,i_block,q_block,state_i_lpf_100k,state_q_lpf_100k,rf_coeff,demod_data,prev_i,prev_q,block_count);
+		RF_thread(iq_block,i_ds,q_ds,i_block,q_block,state_i_lpf_100k,state_q_lpf_100k,rf_coeff,demod_data,prev_i,prev_q,block_count,rf_decim);
 		generated_elems++;
 
 		std::unique_lock<std::mutex> my_lock(my_mutex);
@@ -391,7 +391,7 @@ int main(int argc, char* argv[])
         prev_q,\ 
         block_count, \ 
         block_size, \
-        iq_block);
+        iq_block,rf_decim);
 
 	std::thread audio_consumer = std::thread(my_consumer, std::ref(my_queue), \
 		std::ref(my_mutex), mono_data,
