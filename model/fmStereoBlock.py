@@ -159,6 +159,7 @@ def stereoRecovery(fm_demod, carrierRecoveryState, carrierRecoveryData):
 
     carrierRecoveryData= carrierRecoveryBlock
 
+
     return carrierRecoveryData, carrierRecoveryState
 
 def stereoExtract(fm_demod, channelExtractState, channelExtractData):
@@ -176,24 +177,25 @@ def monoProcess(fm_demod, monoCoeff, audio_state, audioDecim, audio_data):
     audio_block = downsample(audio_filt, audioDecim)
 
     audio_data = audio_block
+    
     #print(len(audio_block))
     #audio_data = np.concatenate([audio_data, audio_block])
-
-    return audio_data, audio_state
+    return audio_block, audio_state
     
-def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, upFactor, downFactor):
+def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, upFactor, downFactor, stereoData):
     #print(len(leftData))
     mixerData = mixer(channelExtractData, carrierRecoveryData)
 
-    print("mixer data")
+    print("channel")
     for i in range(10):
-        print(mixerData[i])
+        print(channelExtractData[i])
 
 
     downSampled = downsample(mixerData, downFactor)
     #print("downsample")
     #print(len(downSampled))
     upSampled = upsample(downSampled, upFactor)
+    stereoData = np.concatenate([stereoData, upSampled])
     #upSampled = upsample(mixerData, upFactor)
     #print("upsample")
     #print(len(upSampled))
@@ -202,12 +204,17 @@ def stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, r
     leftData = np.concatenate([leftData, leftNewData])
     rightData = np.concatenate([rightData, rightNewData])
 
-    return leftData, rightData
+    return leftData, rightData, stereoData
+
+def padData(numTaps, data):
+    for i in range (50):
+        data[i] = 0
+    return data
 
  
 rf_Fs = 2.4e6
 rf_Fc = 100e3
-rf_taps = 151
+rf_taps = 101
 rf_decim = 10
 
 audio_Fs = 48e3
@@ -276,7 +283,7 @@ if __name__ == "__main__":
 
     # select a block_size that is a multiple of KB
     # and a multiple of decimation factors
-    block_size = 128 * rf_decim * audio_decim * 2
+    block_size = 512 * rf_decim * audio_decim * 2
     block_count = 0
 
     # coefficients for IQ -> IF LPFs, Fc = 100kHz
@@ -302,6 +309,8 @@ if __name__ == "__main__":
     monoData = np.array([])
     leftData = np.array([])
     rightData = np.array([])
+    monoExtraData = np.array([])
+    stereoData = np.array([])
     
 
     # if the number of samples in the last block is less than the block size
@@ -337,6 +346,7 @@ if __name__ == "__main__":
         # see more comments on fmSupportLib.py - take particular notice that
         # you MUST have also "custom" state-saving for your own FM demodulator
         fm_demod, prevI, prevQ = myDemod(i_ds, q_ds, prevI, prevQ)
+                
 
         fm_demod_us = upsample(fm_demod, audio_interp)
 
@@ -353,12 +363,20 @@ if __name__ == "__main__":
                 # print(carrierRecoveryData[i])
                 
         monoData, monoState = monoProcess(fm_demod_us, monoCoeff, monoState, audio_decim, monoData)
+
+        #monoData = padData(audio_taps, monoData)
+
+        monoExtraData = np.concatenate([monoExtraData, monoData])
         #print("This is mono")
     
         
-        leftData, rightData = stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, audio_interp, audio_decim)
+        leftData, rightData, stereoData = stereoProcess(channelExtractData, carrierRecoveryData, monoData, leftData, rightData, audio_interp, audio_decim, stereoData)
 
         block_count += 1
+
+        if (block_count == 100):
+            break
+        
 
     print('Finished processing all the blocks from the recorded I/Q samples')
 
@@ -369,10 +387,10 @@ if __name__ == "__main__":
     # print("Written audio samples to \"" + out_fname + "\" in signed 16-bit format")
 
 	# write audio data to file
-    out_fname1 = "../data/leftData.wav"
+    out_fname1 = "data\leftData1.wav"
     wavfile.write(out_fname1, int(audio_Fs), np.int16((leftData/2)*32767))
     print("Written audio samples to \"" + out_fname1 + "\" in signed 16-bit format")
 
-    out_fname2 = "../data/rightData.wav"
+    out_fname2 = "data\ightData1.wav"
     wavfile.write(out_fname2, int(audio_Fs), np.int16((rightData/2)*32767))
     print("Written audio samples to \"" + out_fname2 + "\" in signed 16-bit format")

@@ -98,7 +98,7 @@ mode = 0
 
 rf_Fs = 2.4e6
 rf_Fc = 100e3
-rf_taps = 151
+rf_taps = 101
 rf_decim = 10
 
 if_Fs = 240e3
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
 	# select a block_size that is a multiple of KB
 	# and a multiple of decimation factors
-	block_size = 128 * rf_decim * audio_decim* 2
+	block_size = 512 * rf_decim * audio_decim* 2
 	block_count = 0
 
 	# coefficients for IQ -> IF LPFs, Fc = 100kHz
