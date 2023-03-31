@@ -45,7 +45,7 @@ void stereoProcessing(std::vector<float> &stereo_data,
 	std::vector<float> mixer_data;
 
 	// stereo channel extraction
-	
+
 	resample(channel_data, channel_state, demod_data, channel_coeff, 1, 1);
 
 
@@ -61,8 +61,10 @@ void stereoProcessing(std::vector<float> &stereo_data,
 	resample(stereo_data, audio_state, mixer_data, audio_coeff, audio_interp, audio_decim);
 }
 
-void RDSProcess(const std::vector<float> &demod_data, std::vector<float> &rdsExtract, std::vector<float> &extractState, std::vector<float> &carrierFiltState,
-				std::vector<float> &carrierFiltData, const int audio_decim, const int audio_interp, const int if_fs, const int block_count, const int audio_taps) {
+void RDSProcess(const std::vector<float> &demod_data, std::vector<float> &rdsExtract, std::vector<float> &extractState, 
+				std::vector<float> &carrierFiltState, std::vector<float> &carrierData, std::vector<float> &channelData,
+				const int audio_decim, const int audio_interp, const int if_fs, const int block_count, const int audio_taps,
+				float &integrator, float &phaseEst, float &feedbackI, float &feedbackQ, float &ncoOut_state, float &trigOffset) {
 	/*
 	RDS CHANNEL EXTRACTION
 	*/
@@ -75,14 +77,33 @@ void RDSProcess(const std::vector<float> &demod_data, std::vector<float> &rdsExt
 	*/
 
 	//Carrier
-	std::vector<float> rdsSquared = rdsExtract;
-	for (int i=0; i<rdsSquared.size(); i++) {
-		rdsSquared[i] = rdsSquared[i] * rdsSquared[i];
+	std::vector<float> carrierData = carrierData;
+	for (int i=0; i<carrierData.size(); i++) {
+		carrierData[i] = carrierData[i] * carrierData[i];
 	}
 
 	std::vector<float> carrierCoeff;
 	impulseResponseBPF(carrierCoeff, if_fs, 113500, 114500, audio_taps);
-	resample(carrierFiltData, carrierFiltState, rdsSquared, carrierCoeff, audio_interp, audio_decim);
+	resample(carrierData, carrierFiltState, carrierData, carrierCoeff, audio_interp, audio_decim);
+
+	PLL(carrierData, 114000, if_fs, 0.5, 0, 0.01, integrator, phaseEst, feedbackI, feedbackQ, ncoOut_state, trigOffset);
+
+	/*
+	RDS CHANNEL
+	*/
+
+	//DO ALL PASS FILTER ON rdsExtract
+	//I called output variable channelData, didn't add a state variable
+
+	/*
+	RDS DEMOD
+	*/
+
+	std::vector<float> rdsMixerData;
+	mixer(rdsMixerData, carrierData, channelData);
+
+	std::vector<float> rdsDemodCoeff;
+	impulseResponseLPF(rdsDemodCoeff, if_fs, 3000, audio_taps, 1);
 }
 
 
@@ -235,6 +256,13 @@ int main(int argc, char* argv[])
 	std::vector<float> rdsExtractState(audio_taps-1, 0.0);
 	std::vector<float> rdsCarrierFiltData;
 	std::vector<float> rdsCarrierFiltState;
+
+	float rdsIntegrator = 0.0;
+	float rdsPhaseEst = 0.0;
+	float rdsFeedbackI = 1.0;
+	float rdsFeedbackQ = 0.0;
+	float rdsTrigOffset = 0.0;
+	float rdsNcoOut_state = 1.0;
 	
 	for (;; block_count++){
 		
