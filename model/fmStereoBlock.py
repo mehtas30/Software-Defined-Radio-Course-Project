@@ -159,6 +159,7 @@ def stereoRecovery(fm_demod, carrierRecoveryState, carrierRecoveryData):
 
     carrierRecoveryData= carrierRecoveryBlock
 
+
     return carrierRecoveryData, carrierRecoveryState
 
 def stereoExtract(fm_demod, channelExtractState, channelExtractData):
@@ -167,8 +168,7 @@ def stereoExtract(fm_demod, channelExtractState, channelExtractData):
     channelExtractFiltered, channelExtractState = filter(channelExtractCoeff, fm_demod, channelExtractState)
 
     channelExtractData = channelExtractFiltered
-
-    #print(len(fm_demod))
+    
 
     #channelExtractData = np.concatenate([channelExtractData, channelExtractFiltered])
 
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     # read the raw IQ data from the recorded file
     # IQ data is assumed to be in 8-bits unsigned (and interleaved)
-    in_fname = "data\stereo_l0_r9.raw"
+    in_fname = "data\samples_u8.raw"
     raw_data = np.fromfile(in_fname, dtype='uint8')
     print("Read raw RF data from \"" + in_fname + "\" in unsigned 8-bit format")
     # IQ data is normalized between -1 and +1 in 32-bit float format
@@ -346,6 +346,7 @@ if __name__ == "__main__":
         # see more comments on fmSupportLib.py - take particular notice that
         # you MUST have also "custom" state-saving for your own FM demodulator
         fm_demod, prevI, prevQ = myDemod(i_ds, q_ds, prevI, prevQ)
+                
 
         fm_demod_us = upsample(fm_demod, audio_interp)
 
