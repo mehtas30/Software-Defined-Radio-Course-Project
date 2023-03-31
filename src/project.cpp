@@ -97,6 +97,30 @@ void stereoProcessing(std::vector<float> &left_data, std::vector<float> &right_d
 
 }
 
+void RDSProcess(const std::vector<float> &demod_data, std::vector<float> &rdsExtract, std::vector<float> &extractState, std::vector<float> &carrierFiltState,
+				std::vector<float> &carrierFiltData, const int audio_decim, const int audio_interp, const int if_fs, const int block_count, const int audio_taps) {
+	/*
+	RDS CHANNEL EXTRACTION
+	*/
+	std::vector<float> extractCoeff;
+	impulseResponseBPF(extractCoeff, if_fs, 54000, 19500, audio_taps);
+	resample(rdsExtract, extractState, demod_data, extractCoeff, 1, 1);
+
+	/*
+	RDS CARRIER RECOVERY
+	*/
+
+	//Carrier
+	std::vector<float> rdsSquared = rdsExtract;
+	for (int i=0; i<rdsSquared.size(); i++) {
+		rdsSquared[i] = rdsSquared[i] * rdsSquared[i];
+	}
+
+	std::vector<float> carrierCoeff;
+	impulseResponseBPF(carrierCoeff, if_fs, 113500, 114500, audio_taps);
+	resample(carrierFiltData, carrierFiltState, rdsSquared, carrierCoeff, audio_interp, audio_decim);
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -222,6 +246,11 @@ int main(int argc, char* argv[])
 	std::vector<float> left_data;
 	std::vector<float> right_data;
 	std::vector<short int> audio;
+
+	std::vector<float> rdsExtract; 
+	std::vector<float> rdsExtractState(audio_taps-1, 0.0);
+	std::vector<float> rdsCarrierFiltData;
+	std::vector<float> rdsCarrierFiltState;
 	
 	for (;; block_count++){
 		
