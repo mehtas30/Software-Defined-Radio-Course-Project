@@ -71,29 +71,23 @@ void resample(std::vector<float> &output,
 			const int up_factor,
 			const int down_factor)
 {
-	int taps = coeff.size();
-	int block_size = input.size();
-	int state_size = state.size();
+	const int taps = coeff.size();
+	const int input_size = input.size();
+	const int state_size = state.size();
+	const int output_size = int(input_size * up_factor / down_factor);
 
 	// allocate memory for the output (filtered) data
 	output.clear(); 
-	output.reserve(int(block_size * up_factor / (float)down_factor));
-	output.resize(int(block_size * up_factor / (float)down_factor), 0.0);
+	output.reserve(output_size);
+	output.resize(output_size, 0.0);
 	
-	for (unsigned int n = 0; n < output.size(); n++){
-		int phase = (n * down_factor) % up_factor;
-		
-		output[n] = 0.0;
-		
-		for (int k = phase; k < taps; k += up_factor){
+	for (int n = 0; n < output_size; n++){
+		for (int k = (n * down_factor) % up_factor; k < taps; k += up_factor){
+			
 			int j = int((n * down_factor - k) / up_factor);
 			
-			if (j >= 0){
-				output[n] += coeff[k] * input[j];
-			} 
-			else{
-				output[n] += coeff[k] * state[state_size + j];
-			}
+			if (j >= 0) output[n] += coeff[k] * input[j];
+			else 		output[n] += coeff[k] * state[state_size + j];
 		}
 	}
 	
@@ -102,7 +96,7 @@ void resample(std::vector<float> &output,
 	state.reserve(taps - 1);
 	state.resize(taps - 1);
 	int indexState = 0;
-	for (int c = block_size - (taps - 1); c < block_size; c++){
+	for (int c = input_size - (taps - 1); c < input_size; c++){
 		state[indexState] = input[c];
 		indexState++;
 	}

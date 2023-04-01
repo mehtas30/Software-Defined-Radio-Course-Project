@@ -19,7 +19,6 @@ void monoProcessing(std::vector<float> &mono_data,
 					const std::vector<float> &demod_data,
 					const int audio_decim, const int audio_interp, const int block_count) 
 {
-				
 	// resampling filter (240kS/s -> 48kS/s, 0 - 16kHz)
 	resample(mono_data, audio_state, demod_data, audio_coeff, audio_interp, audio_decim);
 
@@ -233,9 +232,9 @@ int main(int argc, char* argv[])
 		FMDemod(demod_data, prev_i, prev_q, i_ds, q_ds);
 		
 		////////////////////////////////RF FRONT END////////////////////////////
+			
 		monoProcessing(mono_data, audio_coeff, audio_state, demod_data, audio_decim, audio_interp, block_count);
-		
-		
+				
 		
 		if (channels == 2){
 			// MONO DELAY
@@ -254,6 +253,7 @@ int main(int argc, char* argv[])
 			
 			// stereo combiner
 			LRExtraction(left_data, right_data, mono_shift, stereo_data);
+
 			int j = 0;
 			audio.clear();
 			audio.reserve(left_data.size() + right_data.size());
