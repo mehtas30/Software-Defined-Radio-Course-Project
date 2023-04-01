@@ -61,11 +61,10 @@ void RDSProcess(const std::vector<float> &demod_data, std::vector<float> &rdsExt
 				std::vector<float> &carrierFiltState, std::vector<float> &carrierData, std::vector<float> &channelData,
 				const int audio_decim, const int audio_interp, const int if_fs, const int block_count, const int audio_taps,
 				float &integrator, float &phaseEst, float &feedbackI, float &feedbackQ, float &ncoOut_state, float &trigOffset) {
-	/*
-	RDS CHANNEL EXTRACTION
-	*/
-	std::vector<float> extractCoeff;
-	impulseResponseBPF(extractCoeff, if_fs, 54000, 19500, audio_taps);
+
+	// channel extraction
+	std::vector<float> extract_coeff;
+	impulseResponseBPF(extract_coeff, if_fs, 54000, 60000, bp_taps);
 	resample(rdsExtract, extractState, demod_data, extractCoeff, 1, 1);
 
 	/*
