@@ -66,7 +66,7 @@ void rf_thread(std::queue<std::vector<float>> &queue,
 		
 		// FM demodulation
 		FMDemod(demod_data, prev_i, prev_q, i_ds, q_ds);
-		
+
 		std::unique_lock<std::mutex> lock(mutex);
 		while(queue.size() >= QUEUE_CAPACITY){
 			cvar.wait(lock);
