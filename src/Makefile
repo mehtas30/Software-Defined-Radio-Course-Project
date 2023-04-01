@@ -3,9 +3,9 @@
 CC = g++
 CFLAGS = -c -Wall -O3
 # CFLAGS = -c
-LDFLAGS =
+LDFLAGS = -pthread
 INCLUDE = -I../include/
-SOURCES = project.cpp iofunc.cpp filter.cpp  fourier.cpp  genfunc.cpp  logfunc.cpp
+SOURCES = multi.cpp iofunc.cpp filter.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 EXECUTABLE = project
 

@@ -9,10 +9,7 @@ Ontario, Canada
 
 #include "../include/dy4.h"
 #include "../include/filter.h"
-#include "../include/fourier.h"
-#include "../include/genfunc.h"
 #include "../include/iofunc.h"
-#include "../include/logfunc.h"
 
 void monoProcessing(std::vector<float> &mono_data,
 					const std::vector<float> &audio_coeff, std::vector<float> &audio_state,
